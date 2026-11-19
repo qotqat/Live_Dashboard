@@ -76,7 +76,7 @@ export async function loadReport(): Promise<ReportSnapshot> {
     }
 
     // FIXED TS ERROR: Force Papa.parse to return an object with a data array
-    const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true, bom: true }) as unknown as { data: any[] };
+    const parsed = (Papa as any).parse(csvText, { header: true, skipEmptyLines: true, bom: true }) as { data: any[] };
     
     if (!parsed || !parsed.data || parsed.data.length === 0) throw new Error("CSV is empty or failed to parse.");
 
