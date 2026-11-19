@@ -2,9 +2,16 @@ import Papa from "papaparse";
 
 export interface ReportRow {
   d: string;
+  from: string;
+  exact: boolean;
+  w: number;
   trackingId: string;
+  tracking: string;
+  store: string;
   orders: number;
+  shipped: number;
   sales: number;
+  shippedSales: number;
   earnings: number;
   [key: string]: any; 
 }
@@ -25,6 +32,8 @@ const COL_DATE = ['datedate', 'date', 'report date'];
 const COL_ORDERS = ['items_orderedtotal_items_ordered', 'items ordered', 'items_ordered'];
 const COL_SALES = ['ordered_revenue', 'ordered revenue', 'ordered_revenuerevenue_generated_through_product_links'];
 const COL_EARNINGS = ['total_earnings', 'total earnings', 'total_earningstotal_earnings'];
+const COL_SHIPPED = ['items_shippeditems_shipped', 'items shipped', 'items_shipped'];
+const COL_SHIPPED_SALES = ['items_shipped_revenueitems_shipped_revenue', 'items shipped revenue', 'items_shipped_revenue'];
 
 function sheetCsvUrl() {
   const id = process.env.SHEET_ID || DEFAULT_SHEET_ID;
@@ -46,7 +55,6 @@ function findCol(headers: string[], names: string[]): string | null {
   return null;
 }
 
-// UPDATED: Now handles "10 Nov 2026" exactly like code.md
 function parseDateStr(dateStr: string): string {
   const s = String(dateStr || '').trim();
   const MON: Record<string, string> = {
@@ -54,27 +62,31 @@ function parseDateStr(dateStr: string): string {
     jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
   };
 
-  // 1. YYYY-MM-DD
   let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
   if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
 
-  // 2. MM-DD-YYYY or DD-MM-YYYY
   m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
   if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
 
-  // 3. DD MMM YYYY (e.g., "10 Nov 2026")
   m = s.match(/^(\d{1,2})\s+([A-Za-z]{3})[a-z]*\.?,?\s+(\d{4})$/);
   if (m && MON[m[2].toLowerCase()]) {
     return `${m[3]}-${MON[m[2].toLowerCase()]}-${m[1].padStart(2, '0')}`;
   }
 
-  // 4. MMM DD, YYYY (e.g., "Nov 10, 2026")
   m = s.match(/^([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})$/);
   if (m && MON[m[1].toLowerCase()]) {
     return `${m[3]}-${MON[m[1].toLowerCase()]}-${m[2].padStart(2, '0')}`;
   }
 
   return ''; 
+}
+
+// Helper to get week number like Apps Script
+function getWeekNumber(d: Date) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
 
 export async function loadReport(): Promise<ReportSnapshot> {
@@ -98,6 +110,8 @@ export async function loadReport(): Promise<ReportSnapshot> {
     const ordersKey = findCol(headers, COL_ORDERS);
     const salesKey = findCol(headers, COL_SALES);
     const earningsKey = findCol(headers, COL_EARNINGS);
+    const shippedKey = findCol(headers, COL_SHIPPED);
+    const shippedSalesKey = findCol(headers, COL_SHIPPED_SALES);
 
     if (!dateKey) throw new Error("Missing Date column");
     if (!earningsKey) throw new Error("Missing Earnings column");
@@ -106,29 +120,33 @@ export async function loadReport(): Promise<ReportSnapshot> {
     const rows: ReportRow[] = [];
 
     parsed.data.forEach((row: any) => {
-      const trackingId = idKey ? String(row[idKey]).trim() : "unknown";
+      const trackingId = idKey && row[idKey] ? String(row[idKey]).trim() : "unknown";
       const d = parseDateStr(row[dateKey]);
-      
-      // Skip invalid/missing dates
       if (!d) return; 
 
-      // Clean numbers: "EGP92,673.06" -> 92673.06
       const parseNum = (val: any) => {
         if (!val) return 0;
         const clean = String(val).replace(/[^0-9.-]/g, '');
         return Number(clean) || 0;
       };
 
+      const dateObj = new Date(d + "T12:00:00Z");
+
       rows.push({
         d,
+        from: d, // Required by metrics.ts
+        exact: true,
+        w: getWeekNumber(dateObj),
         trackingId,
+        tracking: trackingId, // Alias in case metrics.ts uses this name
+        store: trackingId,    // Alias in case metrics.ts uses this name
         orders: ordersKey ? parseNum(row[ordersKey]) : 0,
+        shipped: shippedKey ? parseNum(row[shippedKey]) : 0,
         sales: salesKey ? parseNum(row[salesKey]) : 0,
+        shippedSales: shippedSalesKey ? parseNum(row[shippedSalesKey]) : 0,
         earnings: parseNum(row[earningsKey]) * INFLUENCER_SHARE,
       });
     });
-
-    console.log(`=== PARSED ${rows.length} VALID ROWS ===`);
 
     return {
       rows,
