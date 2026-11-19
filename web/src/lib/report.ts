@@ -154,14 +154,23 @@ export async function loadReport(): Promise<ReportSnapshot> {
       // 🛡️ THE SAFETY NET: Prevents ANY undefined errors in metrics.ts
       rows.push(new Proxy(parsedRow, {
         get(target, prop) {
-          if (prop in target) return target[prop];
-          // If it asks for a missing string property, return empty string so .slice() doesn't crash
-          if (typeof prop === 'string' && (prop.startsWith('d') || prop.toLowerCase().includes('date') || prop.toLowerCase().includes('id'))) return '';
-          // Otherwise return 0 for math
+          // Cast to any to fix the TypeScript 'symbol' error
+          if (prop in target) return (target as any)[prop];
+          
+          if (typeof prop === 'string') {
+            // Catch missing dates/IDs so .slice() doesn't crash
+            if (prop.startsWith('d') || prop.toLowerCase().includes('date') || prop.toLowerCase().includes('id')) {
+              return target.d || ''; 
+            }
+            // Catch specific date range fields used by charts
+            if (prop === 'to' || prop === 'from') {
+              return target.d;
+            }
+          }
+          // Default to 0 for missing math fields
           return 0;
         }
       }));
-    });
 
     return {
       rows,
