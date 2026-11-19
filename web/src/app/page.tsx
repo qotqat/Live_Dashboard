@@ -35,7 +35,7 @@ function Header({ checkedAt, dict, locale }: { checkedAt?: string; dict: Diction
       <div className="bar-in">
         <div className="brand">
           <span className="logo-mark" aria-hidden="true">
-            <img src="/images/logo.webp" alt="Company logo" />
+            <img src="/images/logo.png" alt="Amazon logo" />
           </span>
           <div className="brand-copy">
             <span className="logo">{dict.brand.title}</span>
