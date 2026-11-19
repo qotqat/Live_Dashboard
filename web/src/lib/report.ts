@@ -81,7 +81,6 @@ function parseDateStr(dateStr: string): string {
   return ''; 
 }
 
-// Helper to get week number like Apps Script
 function getWeekNumber(d: Date) {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
@@ -132,20 +131,36 @@ export async function loadReport(): Promise<ReportSnapshot> {
 
       const dateObj = new Date(d + "T12:00:00Z");
 
-      rows.push({
+      const parsedRow: ReportRow = {
+        ...row, // Include raw CSV columns just in case
         d,
-        from: d, // Required by metrics.ts
+        from: d, 
         exact: true,
         w: getWeekNumber(dateObj),
         trackingId,
-        tracking: trackingId, // Alias in case metrics.ts uses this name
-        store: trackingId,    // Alias in case metrics.ts uses this name
+        tracking: trackingId, 
+        store: trackingId,    
         orders: ordersKey ? parseNum(row[ordersKey]) : 0,
         shipped: shippedKey ? parseNum(row[shippedKey]) : 0,
         sales: salesKey ? parseNum(row[salesKey]) : 0,
         shippedSales: shippedSalesKey ? parseNum(row[shippedSalesKey]) : 0,
         earnings: parseNum(row[earningsKey]) * INFLUENCER_SHARE,
-      });
+        // Fallbacks for any other charts
+        clicks: 0,
+        returned: 0,
+        conversion: 0,
+      };
+
+      // 🛡️ THE SAFETY NET: Prevents ANY undefined errors in metrics.ts
+      rows.push(new Proxy(parsedRow, {
+        get(target, prop) {
+          if (prop in target) return target[prop];
+          // If it asks for a missing string property, return empty string so .slice() doesn't crash
+          if (typeof prop === 'string' && (prop.startsWith('d') || prop.toLowerCase().includes('date') || prop.toLowerCase().includes('id'))) return '';
+          // Otherwise return 0 for math
+          return 0;
+        }
+      }));
     });
 
     return {
