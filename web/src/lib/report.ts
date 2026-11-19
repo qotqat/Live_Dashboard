@@ -1,6 +1,5 @@
 import Papa from "papaparse";
 
-// This must match exactly what metrics.ts expects!
 export interface ReportRow {
   date: string;
   trackingId: string;
@@ -37,6 +36,19 @@ function sheetCsvUrl() {
   const id = process.env.SHEET_ID || DEFAULT_SHEET_ID;
   const gid = process.env.SHEET_GID || DEFAULT_GID;
   return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
+}
+
+// New helper to fetch other tabs by name
+async function fetchTab(tabName: string): Promise<any[]> {
+  const id = process.env.SHEET_ID || DEFAULT_SHEET_ID;
+  const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
+  const res = await fetch(url, { redirect: 'follow', cache: 'no-store' });
+  if (!res.ok) return [];
+  const text = await res.text();
+  if (text.trim().startsWith('<!DOCTYPE')) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const parsed = (Papa as any).parse(text, { header: true, skipEmptyLines: true, bom: true }) as { data: any[] };
+  return parsed.data || [];
 }
 
 function findCol(headers: string[], names: string[]): string | null {
@@ -83,10 +95,16 @@ export async function loadReport(): Promise<ReportSnapshot> {
   const url = sheetCsvUrl();
   
   try {
-    const res = await fetch(url, { redirect: 'follow', cache: 'no-store' });
-    if (!res.ok) throw new Error(`Google Sheets returned HTTP ${res.status}`);
+    // Fetch Data, Payments, and Commission concurrently
+    const [dataRes, paymentsData, commissionData] = await Promise.all([
+      fetch(url, { redirect: 'follow', cache: 'no-store' }),
+      fetchTab('Payments').catch(() => []),
+      fetchTab('Commission').catch(() => [])
+    ]);
 
-    const csvText = await res.text();
+    if (!dataRes.ok) throw new Error(`Google Sheets returned HTTP ${dataRes.status}`);
+
+    const csvText = await dataRes.text();
     if (csvText.trim().startsWith('<!DOCTYPE')) throw new Error("Sheet is not public.");
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,7 +139,6 @@ export async function loadReport(): Promise<ReportSnapshot> {
         return Number(clean) || 0;
       };
 
-      // Map perfectly to metrics.ts expectations
       rows.push({
         date,
         trackingId,
@@ -134,12 +151,56 @@ export async function loadReport(): Promise<ReportSnapshot> {
       });
     });
 
+    // Parse Payments
+    const payments = paymentsData.map((row: any) => {
+      const keys = Object.keys(row);
+      const getVal = (possibleNames: string[]) => {
+        const k = keys.find(key => possibleNames.some(pn => key.toLowerCase().includes(pn.toLowerCase())));
+        return k ? row[k] : '';
+      };
+      
+      const monthStr = getVal(['Month (YYYY-MM)']);
+      const status = getVal(['Status']);
+      const valAmtStr = getVal(['Validated Amount']);
+      const expDate = getVal(['Expected Payment Date']);
+      const paidDate = getVal(['Paid Date']);
+      const note = getVal(['Note']);
+
+      return [
+        monthStr,
+        status,
+        valAmtStr ? Number(String(valAmtStr).replace(/[^0-9.-]/g, '')) : null,
+        expDate,
+        paidDate,
+        note
+      ];
+    }).filter(p => p[0]); // Only keep rows that have a Month
+
+    // Parse Commission Rates
+    const rates = commissionData.map((row: any) => {
+      const keys = Object.keys(row);
+      const getVal = (possibleNames: string[]) => {
+        const k = keys.find(key => possibleNames.some(pn => key.toLowerCase().includes(pn.toLowerCase())));
+        return k ? row[k] : '';
+      };
+      const cat = getVal(['Category (Arabic)']);
+      const rateStr = getVal(['Amazon Rate (used)']);
+      
+      let rate = 0;
+      if (rateStr) {
+        rate = Number(String(rateStr).replace(/[^0-9.-]/g, ''));
+        if (rate > 1) rate = rate / 100; // Handle both "15" and "15%"
+      }
+
+      return [cat, rate * INFLUENCER_SHARE];
+    }).filter(r => r[0] && r[1] > 0);
+
     return {
       rows,
       fetchedAt: new Date().toISOString(),
       currency: 'ج.م',
-      rates: [['أثاث', 0.14], ['ساعات', 0.128], ['الجمال', 0.08]], 
-      payments: [],
+      rates: rates.length > 0 ? rates : [['أثاث', 0.14], ['ساعات', 0.128], ['الجمال', 0.08]], 
+      payments: payments,
       ratesTitle: 'نسب العمولة',
     };
   } catch (error: any) {

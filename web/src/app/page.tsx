@@ -144,10 +144,10 @@ export default async function Page({ searchParams }: PageProps) {
       </div>
 
       {/* TABS NAVIGATION */}
-      <div className="views" style={{ marginBottom: '1.5rem', marginInline: 'auto' }}>
-        <Link href="/?tab=perf" className="view-btn" aria-selected={tabValue === "perf"}>الأداء</Link>
-        <Link href="/?tab=pay" className="view-btn" aria-selected={tabValue === "pay"}>المدفوعات</Link>
-        <Link href="/?tab=rates" className="view-btn" aria-selected={tabValue === "rates"}>العمولة</Link>
+      <div className="chips" style={{ marginBottom: '1.5rem', justifyContent: 'center' }}>
+        <Link href="/?tab=perf" className={tabValue === "perf" ? "chip active" : "chip"}>الأداء</Link>
+        <Link href="/?tab=pay" className={tabValue === "pay" ? "chip active" : "chip"}>المدفوعات</Link>
+        <Link href="/?tab=rates" className={tabValue === "rates" ? "chip active" : "chip"}>العمولة</Link>
       </div>
 
       {/* PERF TAB */}
