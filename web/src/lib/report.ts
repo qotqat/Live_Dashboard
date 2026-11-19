@@ -1,369 +1,122 @@
-export const DEFAULT_SHEET_ID =
-  "11IF3Af7LdxbvJzheqFWW_fLq3VkCxNejbRPyDyFlH78";
-export const DEFAULT_GID = "1651395657";
+import Papa from "papaparse";
 
-const SHEET_ID = process.env.SHEET_ID?.trim() || DEFAULT_SHEET_ID;
-const SHEET_GID = process.env.SHEET_GID?.trim() || DEFAULT_GID;
+const DEFAULT_SHEET_ID = "11IF3Af7LdxbvJzheqFWW_fLq3VkCxNejbRPyDyFlH78";
+const DEFAULT_GID = "1651395657";
 
-export function sheetCsvUrl(): string {
-  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+const COL_DATE = ['datedate', 'date', 'report date'];
+const COL_ORDERS = ['items_orderedtotal_items_ordered', 'items ordered', 'items_ordered'];
+const COL_SALES = ['ordered_revenue', 'ordered revenue'];
+const COL_EARNINGS = ['total_earnings', 'total earnings'];
+
+function sheetCsvUrl() {
+  const id = process.env.SHEET_ID || DEFAULT_SHEET_ID;
+  const gid = process.env.SHEET_GID || DEFAULT_GID;
+  return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
 }
 
-export type ReportRow = {
-  trackingId: string;
-  scraperOrder: string;
-  date: string; // YYYY-MM-DD
-  dateLabel: string; // 17 Nov 2026
-  itemsOrdered: number;
-  productConversion: number | null; // percent value, e.g. 137.5
-  orderedRevenue: number; // EGP
-  commissionRate: number | null; // percent value
-  itemsShipped: number;
-  itemsShippedRevenue: number;
-  itemsShippedEarnings: number;
-  totalEarnings: number;
-  clicks: number;
-  returnedRevenue: number;
-  returnedEarnings: number;
-  returnedItems: number;
-};
-
-export type ReportSnapshot = {
-  rows: ReportRow[];
-  fetchedAt: string;
-  rawRowCount: number;
-  skippedRowCount: number;
-  dedupedRowCount: number;
-  source: { sheetId: string; gid: string; url: string };
-};
-
-const MONTHS: Record<string, number> = {
-  jan: 0,
-  feb: 1,
-  mar: 2,
-  apr: 3,
-  may: 4,
-  jun: 5,
-  jul: 6,
-  aug: 7,
-  sep: 8,
-  oct: 9,
-  nov: 10,
-  dec: 11,
-};
-
-const MONTH_LABELS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-/**
- * The report is an Amazon Associates CSV pasted into a Google Sheets tab, so
- * headers arrive doubled ("datedate", "total_earningstotal_earnings"). Normalise
- * before matching, and keep explicit aliases for the variants we have seen.
- */
-const COLUMNS = {
-  trackingId: ["trackingid"],
-  scraperOrder: ["webscraperorder"],
-  date: ["datedate", "date"],
-  itemsOrdered: ["itemsorderedtotalitemsordered", "itemsordered"],
-  productConversion: [
-    "productconversionrateproductlinkconversion",
-    "productconversionrate",
-  ],
-  orderedRevenue: [
-    "orderedrevenuerevenuegeneratedthroughproductlinks",
-    "orderedrevenue",
-  ],
-  commissionRate: ["commissionratecommissionrate", "commissionrate"],
-  itemsShipped: ["itemsshippeditemsshipped", "itemsshipped"],
-  itemsShippedRevenue: [
-    "itemsshippedrevenueitemsshippedrevenue",
-    "itemsshippedrevenue",
-  ],
-  itemsShippedEarnings: [
-    "itemsshippedearningsitemsshippedearnings",
-    "itemsshippedearnings",
-  ],
-  totalEarnings: ["totalearningstotalearnings", "totalearnings"],
-  clicks: [
-    "clickstotalnumberofclicksonyouramazonassociateslinks",
-    "clickstotal",
-    "clicks",
-  ],
-  returnedRevenue: [
-    "itemsreturnedrevenueitemsreturnedrevenue",
-    "itemsreturnedrevenue",
-  ],
-  returnedEarnings: [
-    "itemsreturnedearningsitemsreturnedearnings",
-    "itemsreturnedearnings",
-  ],
-  returnedItems: [
-    "itemsreturnedtotalnumberofreturneditems",
-    "itemsreturned",
-  ],
-} as const;
-
-type ColumnKey = keyof typeof COLUMNS;
-
-const REQUIRED: ColumnKey[] = [
-  "trackingId",
-  "date",
-  "itemsOrdered",
-  "orderedRevenue",
-  "totalEarnings",
-  "clicks",
-];
-
-function normalizeHeader(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function locateColumns(headers: string[]): Partial<Record<ColumnKey, number>> {
-  const normalized = headers.map(normalizeHeader);
-  const index: Partial<Record<ColumnKey, number>> = {};
-
-  for (const key of Object.keys(COLUMNS) as ColumnKey[]) {
-    for (const alias of COLUMNS[key]) {
-      const found = normalized.indexOf(alias);
-      if (found >= 0) {
-        index[key] = found;
-        break;
-      }
+function findCol(headers: string[], names: string[]): string | null {
+  const lowerHeaders = headers.map(h => String(h || '').trim().toLowerCase());
+  for (const name of names) {
+    const idx = lowerHeaders.indexOf(name.toLowerCase());
+    if (idx !== -1) return headers[idx];
+  }
+  for (const name of names) {
+    for (let i = 0; i < lowerHeaders.length; i++) {
+      if (lowerHeaders[i].startsWith(name.toLowerCase())) return headers[i];
     }
   }
-
-  return index;
-}
-
-function readCell(
-  row: string[],
-  index: Partial<Record<ColumnKey, number>>,
-  key: ColumnKey,
-): string {
-  const at = index[key];
-  return at === undefined ? "" : (row[at] ?? "").trim();
-}
-
-export function parseNumber(value: string): number | null {
-  if (!value) return null;
-  const cleaned = value.replace(/[^0-9.\-]/g, "");
-  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
-    return null;
-  }
-  const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function pad(value: number): string {
-  return String(value).padStart(2, "0");
-}
-
-export function parseReportDate(
-  value: string,
-): { iso: string; label: string } | null {
-  const trimmed = value.trim();
-
-  const dayFirst = trimmed.match(/^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})$/);
-  if (dayFirst) {
-    const day = Number(dayFirst[1]);
-    const month = MONTHS[dayFirst[2].slice(0, 3).toLowerCase()];
-    const year = Number(dayFirst[3]);
-    if (month === undefined || day < 1 || day > 31) return null;
-    return {
-      iso: `${year}-${pad(month + 1)}-${pad(day)}`,
-      label: `${day} ${MONTH_LABELS[month]} ${year}`,
-    };
-  }
-
-  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) {
-    const year = Number(isoMatch[1]);
-    const month = Number(isoMatch[2]);
-    const day = Number(isoMatch[3]);
-    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-    return {
-      iso: `${year}-${pad(month)}-${pad(day)}`,
-      label: `${day} ${MONTH_LABELS[month - 1]} ${year}`,
-    };
-  }
-
   return null;
 }
 
-function orderRank(order: string): [number, number] {
-  const match = order.match(/^\s*(\d+)\s*-\s*(\d+)\s*$/);
-  if (!match) return [-1, -1];
-  return [Number(match[1]), Number(match[2])];
+// ROBUST DATE PARSER (Mimics code.md exactly)
+function parseDateStr(dateStr: string): string {
+  const s = String(dateStr || '').trim();
+  // Matches YYYY-MM-DD
+  let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  
+  // Matches MM-DD-YYYY (or DD-MM-YYYY)
+  m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
+  if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`; 
+  
+  return ''; // Invalid format
 }
 
-function compareOrder(a: string, b: string): number {
-  const [aRun, aStep] = orderRank(a);
-  const [bRun, bStep] = orderRank(b);
-  if (aRun !== bRun) return aRun - bRun;
-  return aStep - bStep;
-}
-
-/** RFC 4180-ish parser: handles quoted fields, embedded commas, and "" escapes. */
-export function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let quoted = false;
-
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i];
-
-    if (quoted) {
-      if (char === '"') {
-        if (text[i + 1] === '"') {
-          field += '"';
-          i += 1;
-        } else {
-          quoted = false;
-        }
-      } else {
-        field += char;
-      }
-      continue;
-    }
-
-    if (char === '"') {
-      quoted = true;
-    } else if (char === ",") {
-      row.push(field);
-      field = "";
-    } else if (char === "\n") {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
-    } else if (char !== "\r") {
-      field += char;
-    }
-  }
-
-  if (field.length > 0 || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-
-  return rows.filter((candidate) => candidate.some((cell) => cell.trim() !== ""));
-}
-
-function toRow(
-  cells: string[],
-  index: Partial<Record<ColumnKey, number>>,
-): ReportRow | null {
-  const trackingId = readCell(cells, index, "trackingId");
-  const parsedDate = parseReportDate(readCell(cells, index, "date"));
-  if (!trackingId || !parsedDate) return null;
-
-  const number = (key: ColumnKey) =>
-    parseNumber(readCell(cells, index, key)) ?? 0;
-
-  return {
-    trackingId,
-    scraperOrder: readCell(cells, index, "scraperOrder"),
-    date: parsedDate.iso,
-    dateLabel: parsedDate.label,
-    itemsOrdered: number("itemsOrdered"),
-    productConversion: parseNumber(readCell(cells, index, "productConversion")),
-    orderedRevenue: number("orderedRevenue"),
-    commissionRate: parseNumber(readCell(cells, index, "commissionRate")),
-    itemsShipped: number("itemsShipped"),
-    itemsShippedRevenue: number("itemsShippedRevenue"),
-    itemsShippedEarnings: number("itemsShippedEarnings"),
-    totalEarnings: number("totalEarnings"),
-    clicks: number("clicks"),
-    returnedRevenue: number("returnedRevenue"),
-    returnedEarnings: number("returnedEarnings"),
-    returnedItems: number("returnedItems"),
-  };
-}
-
-export async function loadReport(): Promise<ReportSnapshot> {
+export async function loadReport(): Promise<any> {
   const url = sheetCsvUrl();
+  
+  try {
+    const res = await fetch(url, {
+      redirect: 'follow', 
+      cache: 'no-store'
+    });
 
-  const response = await fetch(url, { 
-  redirect: 'follow',      // Force fetch to follow the 307 redirect
-  cache: 'no-store'        // Disable Next.js caching for debugging
-});
+    if (!res.ok) throw new Error(`Google Sheets returned HTTP ${res.status}`);
 
-  if (!response.ok) {
-    throw new Error(`Google Sheets returned HTTP ${response.status}.`);
-  }
-
-  const text = await response.text();
-  if (text.trimStart().startsWith("<")) {
-    throw new Error(
-      "Google Sheets returned a sign-in or error page instead of CSV. The data tab must be readable by anyone with the link.",
-    );
-  }
-
-  const dateHeader = response.headers.get("date");
-  const fetchedAt = dateHeader
-    ? new Date(dateHeader).toISOString()
-    : new Date().toISOString();
-
-  const table = parseCsv(text);
-  if (table.length === 0) {
-    throw new Error("The data tab is empty.");
-  }
-
-  const [header, ...body] = table;
-  const index = locateColumns(header);
-  const missing = REQUIRED.filter((key) => index[key] === undefined);
-  if (missing.length > 0) {
-    throw new Error(
-      `The data tab is missing required columns: ${missing.join(", ")}. Found headers: ${header.join(" | ")}`,
-    );
-  }
-
-  const skipped = body.filter(
-    (cells) => toRow(cells, index) === null,
-  ).length;
-
-  const parsedRows = body
-    .map((cells) => toRow(cells, index))
-    .filter((row): row is ReportRow => row !== null);
-
-  /**
-   * If the scraper appends the same (date, tracking ID) repeatedly, keep the
-   * newest run rather than summing duplicates. Order comes from
-   * web_scraper_order ("1795013468-5"); when absent, later rows win.
-   */
-  const deduped = new Map<string, ReportRow>();
-  for (const row of parsedRows) {
-    const key = `${row.date}|${row.trackingId}`;
-    const existing = deduped.get(key);
-    if (!existing || compareOrder(row.scraperOrder, existing.scraperOrder) >= 0) {
-      deduped.set(key, row);
+    const csvText = await res.text();
+    if (csvText.trim().startsWith('<!DOCTYPE')) {
+      throw new Error("Google returned an HTML login page. The sheet is not public.");
     }
+
+    // Added bom: true to fix BOM issues with Google Sheets CSVs
+    const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true, bom: true });
+    
+    if (parsed.data.length === 0) throw new Error("CSV is empty.");
+
+    const headers = Object.keys(parsed.data[0]);
+    
+    const dateKey = findCol(headers, COL_DATE);
+    const ordersKey = findCol(headers, COL_ORDERS);
+    const salesKey = findCol(headers, COL_SALES);
+    const earningsKey = findCol(headers, COL_EARNINGS);
+
+    if (!dateKey || !earningsKey) {
+      throw new Error(`Missing required columns. Found headers: ${headers.join(', ')}`);
+    }
+
+    const INFLUENCER_SHARE = 0.5;
+    const byDate: Record<string, any> = {};
+    let dataTo = '';
+
+    parsed.data.forEach((row: any) => {
+      if (!row[dateKey]) return;
+      
+      const d = parseDateStr(row[dateKey]);
+      if (!d) return; // Skip if date parsing failed
+
+      if (d > dataTo) dataTo = d;
+
+      if (!byDate[d]) {
+        byDate[d] = { d, orders: 0, sales: 0, earnings: 0 };
+      }
+
+      const parseNum = (val: any) => Number(String(val || '0').replace(/[^0-9.-]/g, '')) || 0;
+
+      if (ordersKey) byDate[d].orders += parseNum(row[ordersKey]);
+      if (salesKey) byDate[d].sales += parseNum(row[salesKey]);
+      if (earningsKey) byDate[d].earnings += parseNum(row[earningsKey]);
+    });
+
+    const days = Object.values(byDate)
+      .sort((a, b) => a.d.localeCompare(b.d))
+      .map(day => ({
+        ...day,
+        earnings: day.earnings * INFLUENCER_SHARE 
+      }));
+
+    return {
+      ok: true,
+      currency: 'ج.م',
+      dataTo: dataTo || new Date().toISOString().slice(0, 10),
+      days,
+      rates: [['أثاث', 0.14], ['ساعات', 0.128], ['الجمال', 0.08]], 
+      ratesTitle: 'نسب العمولة',
+      payments: [],
+      payRules: { vFrom: 30, vTo: 60, payMin: 60 }
+    };
+
+  } catch (error: any) {
+    console.error("❌ FATAL ERROR IN LOAD REPORT:", error.message);
+    throw error; 
   }
-
-  const rows = [...deduped.values()].sort((a, b) => {
-    if (a.date !== b.date) return a.date.localeCompare(b.date);
-    return a.trackingId.localeCompare(b.trackingId);
-  });
-
-  return {
-    rows,
-    fetchedAt,
-    rawRowCount: body.length,
-    skippedRowCount: skipped,
-    dedupedRowCount: parsedRows.length - rows.length,
-    source: { sheetId: SHEET_ID, gid: SHEET_GID, url },
-  };
 }
