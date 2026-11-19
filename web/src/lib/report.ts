@@ -1,5 +1,25 @@
 import Papa from "papaparse";
 
+// RESTORED: These are required by src/lib/metrics.ts
+export interface ReportRow {
+  d: string;
+  orders: number;
+  sales: number;
+  earnings: number;
+  [key: string]: any; 
+}
+
+export interface ReportSnapshot {
+  ok: boolean;
+  currency: string;
+  dataTo: string;
+  days: ReportRow[];
+  rates: any[];
+  ratesTitle: string;
+  payments: any[];
+  payRules: any;
+}
+
 const DEFAULT_SHEET_ID = "11IF3Af7LdxbvJzheqFWW_fLq3VkCxNejbRPyDyFlH78";
 const DEFAULT_GID = "1651395657";
 
@@ -28,21 +48,18 @@ function findCol(headers: string[], names: string[]): string | null {
   return null;
 }
 
-// ROBUST DATE PARSER (Mimics code.md exactly)
 function parseDateStr(dateStr: string): string {
   const s = String(dateStr || '').trim();
-  // Matches YYYY-MM-DD
   let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
   if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
   
-  // Matches MM-DD-YYYY (or DD-MM-YYYY)
   m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
   if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`; 
   
-  return ''; // Invalid format
+  return ''; 
 }
 
-export async function loadReport(): Promise<any> {
+export async function loadReport(): Promise<ReportSnapshot> {
   const url = sheetCsvUrl();
   
   try {
@@ -58,10 +75,10 @@ export async function loadReport(): Promise<any> {
       throw new Error("Google returned an HTML login page. The sheet is not public.");
     }
 
-    // Added bom: true to fix BOM issues with Google Sheets CSVs
-    const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true, bom: true });
+    // FIXED TS ERROR: Force Papa.parse to return an object with a data array
+    const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true, bom: true }) as unknown as { data: any[] };
     
-    if (parsed.data.length === 0) throw new Error("CSV is empty.");
+    if (!parsed || !parsed.data || parsed.data.length === 0) throw new Error("CSV is empty or failed to parse.");
 
     const headers = Object.keys(parsed.data[0]);
     
@@ -75,14 +92,14 @@ export async function loadReport(): Promise<any> {
     }
 
     const INFLUENCER_SHARE = 0.5;
-    const byDate: Record<string, any> = {};
+    const byDate: Record<string, ReportRow> = {};
     let dataTo = '';
 
     parsed.data.forEach((row: any) => {
       if (!row[dateKey]) return;
       
       const d = parseDateStr(row[dateKey]);
-      if (!d) return; // Skip if date parsing failed
+      if (!d) return; 
 
       if (d > dataTo) dataTo = d;
 
@@ -97,7 +114,7 @@ export async function loadReport(): Promise<any> {
       if (earningsKey) byDate[d].earnings += parseNum(row[earningsKey]);
     });
 
-    const days = Object.values(byDate)
+    const days: ReportRow[] = Object.values(byDate)
       .sort((a, b) => a.d.localeCompare(b.d))
       .map(day => ({
         ...day,
