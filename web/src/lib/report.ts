@@ -296,10 +296,10 @@ function toRow(
 export async function loadReport(): Promise<ReportSnapshot> {
   const url = sheetCsvUrl();
 
-  const response = await fetch(url, {
-    next: { revalidate: 300 },
-    headers: { "user-agent": "TrendireDashboard/0.1 (local prototype)" },
-  });
+  const response = await fetch(url, { 
+  redirect: 'follow',      // Force fetch to follow the 307 redirect
+  cache: 'no-store'        // Disable Next.js caching for debugging
+});
 
   if (!response.ok) {
     throw new Error(`Google Sheets returned HTTP ${response.status}.`);
