@@ -144,10 +144,10 @@ export default async function Page({ searchParams }: PageProps) {
       </div>
 
       {/* TABS NAVIGATION */}
-      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        <Link href="/?tab=perf" style={{ padding: '8px 24px', borderRadius: '999px', backgroundColor: tabValue === "perf" ? 'var(--brand)' : 'var(--card)', color: tabValue === "perf" ? 'var(--brand-ink)' : 'var(--text)', border: '1px solid var(--line)', textDecoration: 'none', fontWeight: tabValue === "perf" ? 'bold' : 'normal' }}>الأداء</Link>
-        <Link href="/?tab=pay" style={{ padding: '8px 24px', borderRadius: '999px', backgroundColor: tabValue === "pay" ? 'var(--brand)' : 'var(--card)', color: tabValue === "pay" ? 'var(--brand-ink)' : 'var(--text)', border: '1px solid var(--line)', textDecoration: 'none', fontWeight: tabValue === "pay" ? 'bold' : 'normal' }}>المدفوعات</Link>
-        <Link href="/?tab=rates" style={{ padding: '8px 24px', borderRadius: '999px', backgroundColor: tabValue === "rates" ? 'var(--brand)' : 'var(--card)', color: tabValue === "rates" ? 'var(--brand-ink)' : 'var(--text)', border: '1px solid var(--line)', textDecoration: 'none', fontWeight: tabValue === "rates" ? 'bold' : 'normal' }}>العمولة</Link>
+      <div className="views" role="tablist" style={{ display: 'flex', width: 'fit-content', margin: '0 auto 1.5rem auto' }}>
+        <Link href="/?tab=perf" className="view-btn" style={{ display: 'inline-flex', textDecoration: 'none' }} aria-selected={tabValue === "perf"}>الأداء</Link>
+        <Link href="/?tab=pay" className="view-btn" style={{ display: 'inline-flex', textDecoration: 'none' }} aria-selected={tabValue === "pay"}>المدفوعات</Link>
+        <Link href="/?tab=rates" className="view-btn" style={{ display: 'inline-flex', textDecoration: 'none' }} aria-selected={tabValue === "rates"}>العمولة</Link>
       </div>
 
       {/* PERF TAB */}
@@ -210,12 +210,18 @@ export default async function Page({ searchParams }: PageProps) {
       )}
 
       {/* PAYMENTS TAB */}
-      {tabValue === "pay" && <PaymentsView snapshot={snapshot} />}
+      {tabValue === "pay" && (
+        <div dir="rtl" style={{ fontFamily: '"Cairo", system-ui, sans-serif' }}>
+          <PaymentsView snapshot={snapshot} />
+        </div>
+      )}
 
       {/* RATES TAB */}
-      {tabValue === "rates" && <CommissionView snapshot={snapshot} />}
-
-      {/* Footer has been removed as requested! */}
+      {tabValue === "rates" && (
+        <div dir="rtl" style={{ fontFamily: '"Cairo", system-ui, sans-serif' }}>
+          <CommissionView snapshot={snapshot} />
+        </div>
+      )}
     </Frame>
   );
 }
