@@ -1,6 +1,5 @@
 import Papa from "papaparse";
 
-// RESTORED: These are required by src/lib/metrics.ts
 export interface ReportRow {
   d: string;
   orders: number;
@@ -10,14 +9,12 @@ export interface ReportRow {
 }
 
 export interface ReportSnapshot {
-  ok: boolean;
+  rows: ReportRow[];
+  fetchedAt: string;
   currency: string;
-  dataTo: string;
-  days: ReportRow[];
   rates: any[];
-  ratesTitle: string;
   payments: any[];
-  payRules: any;
+  ratesTitle?: string;
 }
 
 const DEFAULT_SHEET_ID = "11IF3Af7LdxbvJzheqFWW_fLq3VkCxNejbRPyDyFlH78";
@@ -63,50 +60,33 @@ export async function loadReport(): Promise<ReportSnapshot> {
   const url = sheetCsvUrl();
   
   try {
-    const res = await fetch(url, {
-      redirect: 'follow', 
-      cache: 'no-store'
-    });
-
+    const res = await fetch(url, { redirect: 'follow', cache: 'no-store' });
     if (!res.ok) throw new Error(`Google Sheets returned HTTP ${res.status}`);
 
     const csvText = await res.text();
-    if (csvText.trim().startsWith('<!DOCTYPE')) {
-      throw new Error("Google returned an HTML login page. The sheet is not public.");
-    }
+    if (csvText.trim().startsWith('<!DOCTYPE')) throw new Error("Sheet is not public.");
 
-    // FIXED TS ERROR: Force Papa.parse to return an object with a data array
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parsed = (Papa as any).parse(csvText, { header: true, skipEmptyLines: true, bom: true }) as { data: any[] };
-    
-    if (!parsed || !parsed.data || parsed.data.length === 0) throw new Error("CSV is empty or failed to parse.");
+    if (!parsed.data || parsed.data.length === 0) throw new Error("CSV is empty.");
 
     const headers = Object.keys(parsed.data[0]);
-    
     const dateKey = findCol(headers, COL_DATE);
     const ordersKey = findCol(headers, COL_ORDERS);
     const salesKey = findCol(headers, COL_SALES);
     const earningsKey = findCol(headers, COL_EARNINGS);
 
-    if (!dateKey || !earningsKey) {
-      throw new Error(`Missing required columns. Found headers: ${headers.join(', ')}`);
-    }
+    if (!dateKey || !earningsKey) throw new Error(`Missing columns.`);
 
     const INFLUENCER_SHARE = 0.5;
     const byDate: Record<string, ReportRow> = {};
-    let dataTo = '';
 
     parsed.data.forEach((row: any) => {
       if (!row[dateKey]) return;
-      
       const d = parseDateStr(row[dateKey]);
       if (!d) return; 
 
-      if (d > dataTo) dataTo = d;
-
-      if (!byDate[d]) {
-        byDate[d] = { d, orders: 0, sales: 0, earnings: 0 };
-      }
-
+      if (!byDate[d]) byDate[d] = { d, orders: 0, sales: 0, earnings: 0 };
       const parseNum = (val: any) => Number(String(val || '0').replace(/[^0-9.-]/g, '')) || 0;
 
       if (ordersKey) byDate[d].orders += parseNum(row[ordersKey]);
@@ -114,24 +94,18 @@ export async function loadReport(): Promise<ReportSnapshot> {
       if (earningsKey) byDate[d].earnings += parseNum(row[earningsKey]);
     });
 
-    const days: ReportRow[] = Object.values(byDate)
+    const rows = Object.values(byDate)
       .sort((a, b) => a.d.localeCompare(b.d))
-      .map(day => ({
-        ...day,
-        earnings: day.earnings * INFLUENCER_SHARE 
-      }));
+      .map(day => ({ ...day, earnings: day.earnings * INFLUENCER_SHARE }));
 
     return {
-      ok: true,
+      rows,
+      fetchedAt: new Date().toISOString(),
       currency: 'ج.م',
-      dataTo: dataTo || new Date().toISOString().slice(0, 10),
-      days,
       rates: [['أثاث', 0.14], ['ساعات', 0.128], ['الجمال', 0.08]], 
-      ratesTitle: 'نسب العمولة',
       payments: [],
-      payRules: { vFrom: 30, vTo: 60, payMin: 60 }
+      ratesTitle: 'نسب العمولة',
     };
-
   } catch (error: any) {
     console.error("❌ FATAL ERROR IN LOAD REPORT:", error.message);
     throw error; 
