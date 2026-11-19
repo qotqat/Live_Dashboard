@@ -35,12 +35,7 @@ function Header({ checkedAt, dict, locale }: { checkedAt?: string; dict: Diction
       <div className="bar-in">
         <div className="brand">
           <span className="logo-mark" aria-hidden="true">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3 17.5C5.5 19 10.5 20 14 19.5C16.5 19 18.5 18 20 16.5" stroke="#FF9900" strokeWidth="2" strokeLinecap="round"/>
-              <path d="M13.5 7.5H17.5C18.3 7.5 19 8.2 19 9V12C19 12.8 18.3 13.5 17.5 13.5H13.5V7.5Z" fill="currentColor"/>
-              <path d="M13.5 7.5V13.5H10.5L13.5 7.5Z" fill="currentColor"/>
-              <path d="M11 13.5L8 7.5H5L2 13.5H4.5L5.5 11H9.5L10.5 13.5H11ZM8 8.5L9 10.5H6L8 8.5Z" fill="currentColor"/>
-            </svg>
+            <img src="/images/logo.webp" alt="Company logo" />
           </span>
           <div className="brand-copy">
             <span className="logo">{dict.brand.title}</span>
