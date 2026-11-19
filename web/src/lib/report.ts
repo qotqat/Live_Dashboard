@@ -2,6 +2,7 @@ import Papa from "papaparse";
 
 export interface ReportRow {
   d: string;
+  trackingId: string;
   orders: number;
   sales: number;
   earnings: number;
@@ -71,32 +72,42 @@ export async function loadReport(): Promise<ReportSnapshot> {
     if (!parsed.data || parsed.data.length === 0) throw new Error("CSV is empty.");
 
     const headers = Object.keys(parsed.data[0]);
+    
+    // 🔍 DEBUG LOGS
+    console.log("=== CSV HEADERS ===", headers);
+    console.log("=== FIRST ROW ===", parsed.data[0]);
+
+    const idKey = headers.find(h => h.trim().toLowerCase() === 'tracking id') || null;
     const dateKey = findCol(headers, COL_DATE);
     const ordersKey = findCol(headers, COL_ORDERS);
     const salesKey = findCol(headers, COL_SALES);
     const earningsKey = findCol(headers, COL_EARNINGS);
 
-    if (!dateKey || !earningsKey) throw new Error(`Missing columns.`);
+    if (!dateKey) throw new Error("Missing Date column");
+    if (!earningsKey) throw new Error("Missing Earnings column");
 
     const INFLUENCER_SHARE = 0.5;
-    const byDate: Record<string, ReportRow> = {};
+    const rows: ReportRow[] = [];
 
     parsed.data.forEach((row: any) => {
-      if (!row[dateKey]) return;
+      const trackingId = idKey ? String(row[idKey]).trim() : "unknown";
       const d = parseDateStr(row[dateKey]);
+      
+      // Skip rows with invalid/missing dates
       if (!d) return; 
 
-      if (!byDate[d]) byDate[d] = { d, orders: 0, sales: 0, earnings: 0 };
       const parseNum = (val: any) => Number(String(val || '0').replace(/[^0-9.-]/g, '')) || 0;
 
-      if (ordersKey) byDate[d].orders += parseNum(row[ordersKey]);
-      if (salesKey) byDate[d].sales += parseNum(row[salesKey]);
-      if (earningsKey) byDate[d].earnings += parseNum(row[earningsKey]);
+      rows.push({
+        d,
+        trackingId,
+        orders: ordersKey ? parseNum(row[ordersKey]) : 0,
+        sales: salesKey ? parseNum(row[salesKey]) : 0,
+        earnings: parseNum(row[earningsKey]) * INFLUENCER_SHARE,
+      });
     });
 
-    const rows = Object.values(byDate)
-      .sort((a, b) => a.d.localeCompare(b.d))
-      .map(day => ({ ...day, earnings: day.earnings * INFLUENCER_SHARE }));
+    console.log(`=== PARSED ${rows.length} VALID ROWS ===`);
 
     return {
       rows,
