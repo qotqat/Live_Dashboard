@@ -38,16 +38,30 @@ function sheetCsvUrl() {
   return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
 }
 
-// New helper to fetch other tabs by name
 async function fetchTab(tabName: string): Promise<any[]> {
   const id = process.env.SHEET_ID || DEFAULT_SHEET_ID;
   const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
   const res = await fetch(url, { redirect: 'follow', cache: 'no-store' });
-  if (!res.ok) return [];
+  
+  if (!res.ok) {
+    console.error(`Failed to fetch tab ${tabName}. HTTP: ${res.status}`);
+    return [];
+  }
+  
   const text = await res.text();
-  if (text.trim().startsWith('<!DOCTYPE')) return [];
+  if (text.trim().startsWith('<!DOCTYPE')) {
+    console.error(`Tab ${tabName} returned HTML (login page).`);
+    return [];
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parsed = (Papa as any).parse(text, { header: true, skipEmptyLines: true, bom: true }) as { data: any[] };
+  
+  // LOG WHAT WE FOUND
+  if (tabName === 'Payments') {
+    console.log("=== RAW PAYMENTS TAB DATA ===", parsed.data);
+  }
+
   return parsed.data || [];
 }
 
@@ -95,7 +109,6 @@ export async function loadReport(): Promise<ReportSnapshot> {
   const url = sheetCsvUrl();
   
   try {
-    // Fetch Data, Payments, and Commission concurrently
     const [dataRes, paymentsData, commissionData] = await Promise.all([
       fetch(url, { redirect: 'follow', cache: 'no-store' }),
       fetchTab('Payments').catch(() => []),
@@ -151,7 +164,6 @@ export async function loadReport(): Promise<ReportSnapshot> {
       });
     });
 
-    // Parse Payments
     const payments = paymentsData.map((row: any) => {
       const keys = Object.keys(row);
       const getVal = (possibleNames: string[]) => {
@@ -159,12 +171,12 @@ export async function loadReport(): Promise<ReportSnapshot> {
         return k ? row[k] : '';
       };
       
-      const monthStr = getVal(['Month (YYYY-MM)']);
-      const status = getVal(['Status']);
-      const valAmtStr = getVal(['Validated Amount']);
-      const expDate = getVal(['Expected Payment Date']);
-      const paidDate = getVal(['Paid Date']);
-      const note = getVal(['Note']);
+      const monthStr = getVal(['Month (YYYY-MM)', 'month']);
+      const status = getVal(['Status', 'حالة']);
+      const valAmtStr = getVal(['Validated Amount', 'المبلغ']);
+      const expDate = getVal(['Expected Payment Date', 'موعد الدفع']);
+      const paidDate = getVal(['Paid Date', 'تاريخ الدفع']);
+      const note = getVal(['Note', 'ملاحظة']);
 
       return [
         monthStr,
@@ -174,22 +186,21 @@ export async function loadReport(): Promise<ReportSnapshot> {
         paidDate,
         note
       ];
-    }).filter(p => p[0]); // Only keep rows that have a Month
+    }).filter(p => p[0]); 
 
-    // Parse Commission Rates
     const rates = commissionData.map((row: any) => {
       const keys = Object.keys(row);
       const getVal = (possibleNames: string[]) => {
         const k = keys.find(key => possibleNames.some(pn => key.toLowerCase().includes(pn.toLowerCase())));
         return k ? row[k] : '';
       };
-      const cat = getVal(['Category (Arabic)']);
-      const rateStr = getVal(['Amazon Rate (used)']);
+      const cat = getVal(['Category (Arabic)', 'الفئة']);
+      const rateStr = getVal(['Amazon Rate (used)', 'النسبة']);
       
       let rate = 0;
       if (rateStr) {
         rate = Number(String(rateStr).replace(/[^0-9.-]/g, ''));
-        if (rate > 1) rate = rate / 100; // Handle both "15" and "15%"
+        if (rate > 1) rate = rate / 100;
       }
 
       return [cat, rate * INFLUENCER_SHARE];
