@@ -34,7 +34,6 @@ function Header({ checkedAt, dict, locale }: { checkedAt?: string; dict: Diction
     <header>
       <div className="bar-in">
         <div className="brand">
-          {/* Amazon Logo SVG */}
           <span className="logo-mark" aria-hidden="true">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M3 17.5C5.5 19 10.5 20 14 19.5C16.5 19 18.5 18 20 16.5" stroke="#FF9900" strokeWidth="2" strokeLinecap="round"/>
@@ -64,7 +63,10 @@ function Frame({ children, checkedAt, dict, locale }: { children: ReactNode; che
   return (
     <div className="app">
       <Header checkedAt={checkedAt} dict={dict} locale={locale} />
-      <main>{children}</main>
+      {/* Force the main container to be a flex column with tight gaps */}
+      <main style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBlock: '20px 48px', maxWidth: '860px', margin: '0 auto', paddingInline: '16px', minHeight: 'auto' }}>
+        {children}
+      </main>
     </div>
   );
 }
@@ -133,7 +135,7 @@ export default async function Page({ searchParams }: PageProps) {
     <Frame checkedAt={snapshot.fetchedAt} dict={dict} locale={locale}>
       <AutoRefresh />
 
-      <div className="hello">
+      <div className="hello" style={{ marginBottom: '0' }}>
         <div>
           <h1>{dict.hero.title}</h1>
           <p className="sub">{dict.hero.sub}</p>
@@ -143,16 +145,18 @@ export default async function Page({ searchParams }: PageProps) {
         </span>
       </div>
 
-      {/* TABS NAVIGATION - Using the original .views and .view-btn classes */}
-      <div className="views" role="tablist" style={{ margin: '0 auto 1.5rem auto' }}>
-        <Link href="/?tab=perf" className="view-btn" style={{ textDecoration: 'none' }} aria-selected={tabValue === "perf"}>الأداء</Link>
-        <Link href="/?tab=pay" className="view-btn" style={{ textDecoration: 'none' }} aria-selected={tabValue === "pay"}>المدفوعات</Link>
-        <Link href="/?tab=rates" className="view-btn" style={{ textDecoration: 'none' }} aria-selected={tabValue === "rates"}>العمولة</Link>
+      {/* TABS NAVIGATION - Forced Inline Flexbox */}
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0 16px 0' }}>
+        <div style={{ display: 'flex', gap: '4px', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '999px', padding: '4px' }}>
+          <Link href="/?tab=perf" style={{ padding: '6px 18px', borderRadius: '999px', textDecoration: 'none', fontSize: '15px', color: tabValue === "perf" ? 'var(--brand-ink)' : 'var(--text)', background: tabValue === "perf" ? 'var(--brand)' : 'transparent', fontWeight: tabValue === "perf" ? '700' : '400' }}>الأداء</Link>
+          <Link href="/?tab=pay" style={{ padding: '6px 18px', borderRadius: '999px', textDecoration: 'none', fontSize: '15px', color: tabValue === "pay" ? 'var(--brand-ink)' : 'var(--text)', background: tabValue === "pay" ? 'var(--brand)' : 'transparent', fontWeight: tabValue === "pay" ? '700' : '400' }}>المدفوعات</Link>
+          <Link href="/?tab=rates" style={{ padding: '6px 18px', borderRadius: '999px', textDecoration: 'none', fontSize: '15px', color: tabValue === "rates" ? 'var(--brand-ink)' : 'var(--text)', background: tabValue === "rates" ? 'var(--brand)' : 'transparent', fontWeight: tabValue === "rates" ? '700' : '400' }}>العمولة</Link>
+        </div>
       </div>
 
       {/* PERF TAB */}
       {tabValue === "perf" && (
-        <>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="period-block">
             <nav className="chips" aria-label={dict.ranges.label}>
               {rangeOptions.map((option) => {
@@ -206,13 +210,13 @@ export default async function Page({ searchParams }: PageProps) {
           <section className="card"><h2>{dict.weekly.title}</h2><WeeklyTable weeks={weeks} dict={dict} locale={locale} /></section>
           <section className="card"><h2>{dict.monthly.title}</h2><MonthlyTable months={months} dataTo={dataTo} totals={allTotals} dict={dict} locale={locale} /></section>
           <section className="card"><h2>{dict.tracking.title}</h2><p className="sub card-sub">{dict.tracking.sub}</p><TrackingTable items={tracking} totalEarnings={currentTotals.earnings} dict={dict} /></section>
-        </>
+        </div>
       )}
 
-      {/* PAYMENTS TAB */}
+      {/* PAYMENTS TAB - Forced Inline Grid */}
       {tabValue === "pay" && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div className="pay-grid">
+        <div style={{ display: 'grid', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
             <div className="card pay-card">
               <div className="k">الدفعة القادمة</div>
               <div className="m">لا توجد مستحقات قادمة حاليًا</div>
@@ -233,55 +237,34 @@ export default async function Page({ searchParams }: PageProps) {
         </div>
       )}
 
-      {/* RATES TAB */}
-      {tabValue === "rates" && <CommissionView snapshot={snapshot} />}
+      {/* RATES TAB - Forced Inline Grid */}
+      {tabValue === "rates" && (
+        <div style={{ display: 'grid', gap: '16px' }}>
+          <div className="card">
+            <h2 style={{ marginBottom: '4px' }}>{snapshot.ratesTitle || "نسب العمولة"}</h2>
+            <p className="sub" style={{ marginBottom: '10px' }}>نسبة عمولتك من سعر كل منتج يُباع من خلال رابطك، حسب فئة المنتج.</p>
+            <div className="tw">
+              <table>
+                <thead>
+                  <tr>
+                    <th>الفئة</th>
+                    <th className="n">نسبة عمولتك</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(snapshot.rates || []).map((r: any, i: number) => (
+                    <tr key={i}>
+                      <td>{r[0]}</td>
+                      <td className="n">{Math.round(r[1] * 1000) / 10}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
       
     </Frame>
-  );
-}
-
-// --- COMMISSION VIEW COMPONENT ---
-function CommissionView({ snapshot }: { snapshot: ReportSnapshot }) {
-  const rates = snapshot.rates || [];
-  const currencyStr = snapshot.currency || "ج.م";
-  if (rates.length === 0) {
-    return <div className="card empty">لا توجد بيانات عمولة متاحة.</div>;
-  }
-
-  const top = [...rates].sort((a: any, b: any) => b[1] - a[1])[0];
-  const examplePrice = 1000;
-  const pct = (r: number) => `${Math.round(r * 1000) / 10}%`;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div className="card">
-        <h2 style={{ marginBottom: '4px' }}>{snapshot.ratesTitle || "نسب العمولة"}</h2>
-        <p className="sub" style={{ marginBottom: '10px' }}>نسبة عمولتك من سعر كل منتج يُباع من خلال رابطك، حسب فئة المنتج.</p>
-        <div className="tw">
-          <table>
-            <thead>
-              <tr>
-                <th>الفئة</th>
-                <th className="n">نسبة عمولتك</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rates.map((r: any, i: number) => (
-                <tr key={i}>
-                  <td>{r[0]}</td>
-                  <td className="n">{pct(r[1])}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div className="card">
-        <h2>مثال</h2>
-        <p className="sub" style={{ marginTop: '6px' }}>
-          عند بيع منتج من فئة <span style={{ fontWeight: 'bold' }}>"{top[0]}"</span> بسعر {examplePrice} {currencyStr} من خلال رابطك، تكون عمولتك {examplePrice * top[1]} {currencyStr} ({pct(top[1])} من سعر المنتج).
-        </p>
-      </div>
-    </div>
   );
 }
