@@ -11,16 +11,25 @@ export default function Dashboard() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch data from your API (Update this URL if your API route is different)
+  // Fetch data from your API
   useEffect(() => {
     async function fetchData() {
       try {
-        // Replace this with your actual API fetch logic
-        const res = await fetch("https://docs.google.com/spreadsheets/d/11IF3Af7LdxbvJzheqFWW_fLq3VkCxNejbRPyDyFlH78/edit?gid=1651395657#gid=1651395657");
+        // CHANGE THIS LINE: Fetch from your own API route
+        const res = await fetch("/api/dashboard");
+        
+        if (!res.ok) throw new Error("Failed to fetch");
+        
         const json = await res.json();
+        
+        if (json.error) {
+          throw new Error(json.error);
+        }
+        
         setData(json);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to fetch data", err);
+        // Optional: Set an error state to show the exact error on screen
       } finally {
         setLoading(false);
       }

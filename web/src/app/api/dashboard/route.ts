@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getDashboardData } from '@/lib/google-sheets';
+import { loadReport } from '@/lib/report'; // or '../../../lib/report' if alias fails
 
 export async function GET() {
   try {
-    const data = await getDashboardData();
+    const data = await loadReport();
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error("Failed to read Google Sheet:", error);
-    return NextResponse.json({ error: "Failed to load data from Google Sheets" }, { status: 500 });
+    console.error("API Error:", error.message);
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 }
