@@ -110,7 +110,7 @@ const en: Dictionary = {
   },
   brand: {
     title: "Influencer Earnings",
-    subtitle: "Amazon Egypt · Trendire Group",
+    subtitle: "Amazon Egypt",
   },
   live: "Live",
   offline: "Offline",
@@ -199,7 +199,7 @@ const ar: Dictionary = {
   },
   brand: {
     title: "أرباح المؤثرين",
-    subtitle: "أمازون مصر · Trendire Group",
+    subtitle: "أمازون مصر",
   },
   live: "مباشر",
   offline: "غير متصل",
@@ -267,8 +267,8 @@ const ar: Dictionary = {
   },
   footer: {
     source:
-      "المصدر: تبويب data في Google Sheets · يُفحص كل 5 دقائق · المبالغ بالجنيه المصري (ج.م)",
-    basis: "العمولة المعروضة هي إجمالي عمولة أمازون كما وردت في التقرير.",
+      "",
+    basis: "",
   },
   errors: {
     loadTitle: "تعذر تحميل البيانات",
