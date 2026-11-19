@@ -143,11 +143,11 @@ export default async function Page({ searchParams }: PageProps) {
         </span>
       </div>
 
-      {/* TABS NAVIGATION */}
-      <div className="views" role="tablist" style={{ display: 'flex', width: 'fit-content', margin: '0 auto 1.5rem auto' }}>
-        <Link href="/?tab=perf" className="view-btn" style={{ display: 'inline-flex', textDecoration: 'none' }} aria-selected={tabValue === "perf"}>الأداء</Link>
-        <Link href="/?tab=pay" className="view-btn" style={{ display: 'inline-flex', textDecoration: 'none' }} aria-selected={tabValue === "pay"}>المدفوعات</Link>
-        <Link href="/?tab=rates" className="view-btn" style={{ display: 'inline-flex', textDecoration: 'none' }} aria-selected={tabValue === "rates"}>العمولة</Link>
+      {/* TABS NAVIGATION - Using the original .views and .view-btn classes */}
+      <div className="views" role="tablist" style={{ margin: '0 auto 1.5rem auto' }}>
+        <Link href="/?tab=perf" className="view-btn" style={{ textDecoration: 'none' }} aria-selected={tabValue === "perf"}>الأداء</Link>
+        <Link href="/?tab=pay" className="view-btn" style={{ textDecoration: 'none' }} aria-selected={tabValue === "pay"}>المدفوعات</Link>
+        <Link href="/?tab=rates" className="view-btn" style={{ textDecoration: 'none' }} aria-selected={tabValue === "rates"}>العمولة</Link>
       </div>
 
       {/* PERF TAB */}
@@ -211,80 +211,77 @@ export default async function Page({ searchParams }: PageProps) {
 
       {/* PAYMENTS TAB */}
       {tabValue === "pay" && (
-        <div dir="rtl" style={{ fontFamily: '"Cairo", system-ui, sans-serif' }}>
-          <PaymentsView snapshot={snapshot} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="pay-grid">
+            <div className="card pay-card">
+              <div className="k">الدفعة القادمة</div>
+              <div className="m">لا توجد مستحقات قادمة حاليًا</div>
+              <div className="amt">0 <small>{snapshot.currency || "ج.م"}</small></div>
+            </div>
+            <div className="card pay-card">
+              <div className="k">آخر دفعة</div>
+              <div className="m">لم تتم أي مدفوعات بعد</div>
+              <p className="muted" style={{ margin: 0 }}>ستظهر هنا أول دفعة بعد تأكيد المبلغ وصرفه.</p>
+            </div>
+          </div>
+          <div className="card">
+            <h2 style={{ marginBottom: '8px' }}>سجل المدفوعات</h2>
+            <div className="tw">
+              <div className="empty">لا توجد بيانات كافية لعرض سجل المدفوعات حاليًا.</div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* RATES TAB */}
-      {tabValue === "rates" && (
-        <div dir="rtl" style={{ fontFamily: '"Cairo", system-ui, sans-serif' }}>
-          <CommissionView snapshot={snapshot} />
-        </div>
-      )}
+      {tabValue === "rates" && <CommissionView snapshot={snapshot} />}
+      
     </Frame>
-  );
-}
-
-// --- PAYMENTS VIEW COMPONENT ---
-function PaymentsView({ snapshot }: { snapshot: ReportSnapshot }) {
-  const currencyStr = snapshot.currency || "ج.م";
-  const paidList = snapshot.payments || [];
-  const last = paidList[paidList.length - 1];
-
-  return (
-    <div className="space-y-6" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <div className="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-        <div className="card">
-          <h3 className="sub">الدفعة القادمة</h3>
-          <div className="v" style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: '1rem 0' }}>0 {currencyStr}</div>
-          <p className="muted">لا توجد مستحقات قادمة حاليًا</p>
-        </div>
-        <div className="card">
-          <h3 className="sub">آخر دفعة</h3>
-          {!last ? (
-            <p className="muted">لم تتم أي مدفوعات بعد</p>
-          ) : (
-            <div>
-              <div className="v" style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{last[2]} {currencyStr}</div>
-              <p className="muted">تم الدفع في {last[4] || "غير محدد"}</p>
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="card">
-        <h2>سجل المدفوعات</h2>
-        <p className="muted" style={{ marginTop: '1rem' }}>لا توجد بيانات كافية لعرض سجل المدفوعات حاليًا.</p>
-      </div>
-    </div>
   );
 }
 
 // --- COMMISSION VIEW COMPONENT ---
 function CommissionView({ snapshot }: { snapshot: ReportSnapshot }) {
   const rates = snapshot.rates || [];
-  if (rates.length === 0) return <div className="card">لا توجد بيانات عمولة متاحة.</div>;
-  
+  const currencyStr = snapshot.currency || "ج.م";
+  if (rates.length === 0) {
+    return <div className="card empty">لا توجد بيانات عمولة متاحة.</div>;
+  }
+
+  const top = [...rates].sort((a: any, b: any) => b[1] - a[1])[0];
+  const examplePrice = 1000;
+  const pct = (r: number) => `${Math.round(r * 1000) / 10}%`;
+
   return (
-    <div className="card">
-      <h2>{snapshot.ratesTitle || "نسب العمولة"}</h2>
-      <p className="sub" style={{ marginBottom: '1rem' }}>نسبة عمولتك من سعر كل منتج يُباع من خلال رابطك، حسب فئة المنتج.</p>
-      <table style={{ width: '100%', textAlign: 'right', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid var(--line)' }}>
-            <th style={{ padding: '0.5rem' }}>الفئة</th>
-            <th style={{ padding: '0.5rem' }}>نسبة عمولتك</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rates.map((r: any, i: number) => (
-            <tr key={i} style={{ borderBottom: '1px solid var(--line)' }}>
-              <td style={{ padding: '0.75rem 0.5rem' }}>{r[0]}</td>
-              <td style={{ padding: '0.75rem 0.5rem', fontWeight: 'bold', color: 'var(--brand)' }}>{Math.round(r[1] * 1000) / 10}%</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="card">
+        <h2 style={{ marginBottom: '4px' }}>{snapshot.ratesTitle || "نسب العمولة"}</h2>
+        <p className="sub" style={{ marginBottom: '10px' }}>نسبة عمولتك من سعر كل منتج يُباع من خلال رابطك، حسب فئة المنتج.</p>
+        <div className="tw">
+          <table>
+            <thead>
+              <tr>
+                <th>الفئة</th>
+                <th className="n">نسبة عمولتك</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rates.map((r: any, i: number) => (
+                <tr key={i}>
+                  <td>{r[0]}</td>
+                  <td className="n">{pct(r[1])}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="card">
+        <h2>مثال</h2>
+        <p className="sub" style={{ marginTop: '6px' }}>
+          عند بيع منتج من فئة <span style={{ fontWeight: 'bold' }}>"{top[0]}"</span> بسعر {examplePrice} {currencyStr} من خلال رابطك، تكون عمولتك {examplePrice * top[1]} {currencyStr} ({pct(top[1])} من سعر المنتج).
+        </p>
+      </div>
     </div>
   );
 }
