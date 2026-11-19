@@ -23,8 +23,8 @@ const DEFAULT_GID = "1651395657";
 
 const COL_DATE = ['datedate', 'date', 'report date'];
 const COL_ORDERS = ['items_orderedtotal_items_ordered', 'items ordered', 'items_ordered'];
-const COL_SALES = ['ordered_revenue', 'ordered revenue'];
-const COL_EARNINGS = ['total_earnings', 'total earnings'];
+const COL_SALES = ['ordered_revenue', 'ordered revenue', 'ordered_revenuerevenue_generated_through_product_links'];
+const COL_EARNINGS = ['total_earnings', 'total earnings', 'total_earningstotal_earnings'];
 
 function sheetCsvUrl() {
   const id = process.env.SHEET_ID || DEFAULT_SHEET_ID;
@@ -46,14 +46,34 @@ function findCol(headers: string[], names: string[]): string | null {
   return null;
 }
 
+// UPDATED: Now handles "10 Nov 2026" exactly like code.md
 function parseDateStr(dateStr: string): string {
   const s = String(dateStr || '').trim();
+  const MON: Record<string, string> = {
+    jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+    jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+  };
+
+  // 1. YYYY-MM-DD
   let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
   if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
-  
+
+  // 2. MM-DD-YYYY or DD-MM-YYYY
   m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
-  if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`; 
-  
+  if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+
+  // 3. DD MMM YYYY (e.g., "10 Nov 2026")
+  m = s.match(/^(\d{1,2})\s+([A-Za-z]{3})[a-z]*\.?,?\s+(\d{4})$/);
+  if (m && MON[m[2].toLowerCase()]) {
+    return `${m[3]}-${MON[m[2].toLowerCase()]}-${m[1].padStart(2, '0')}`;
+  }
+
+  // 4. MMM DD, YYYY (e.g., "Nov 10, 2026")
+  m = s.match(/^([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})$/);
+  if (m && MON[m[1].toLowerCase()]) {
+    return `${m[3]}-${MON[m[1].toLowerCase()]}-${m[2].padStart(2, '0')}`;
+  }
+
   return ''; 
 }
 
@@ -73,10 +93,6 @@ export async function loadReport(): Promise<ReportSnapshot> {
 
     const headers = Object.keys(parsed.data[0]);
     
-    // 🔍 DEBUG LOGS
-    console.log("=== CSV HEADERS ===", headers);
-    console.log("=== FIRST ROW ===", parsed.data[0]);
-
     const idKey = headers.find(h => h.trim().toLowerCase() === 'tracking id') || null;
     const dateKey = findCol(headers, COL_DATE);
     const ordersKey = findCol(headers, COL_ORDERS);
@@ -93,10 +109,15 @@ export async function loadReport(): Promise<ReportSnapshot> {
       const trackingId = idKey ? String(row[idKey]).trim() : "unknown";
       const d = parseDateStr(row[dateKey]);
       
-      // Skip rows with invalid/missing dates
+      // Skip invalid/missing dates
       if (!d) return; 
 
-      const parseNum = (val: any) => Number(String(val || '0').replace(/[^0-9.-]/g, '')) || 0;
+      // Clean numbers: "EGP92,673.06" -> 92673.06
+      const parseNum = (val: any) => {
+        if (!val) return 0;
+        const clean = String(val).replace(/[^0-9.-]/g, '');
+        return Number(clean) || 0;
+      };
 
       rows.push({
         d,
