@@ -132,7 +132,7 @@ export async function loadReport(): Promise<ReportSnapshot> {
       const dateObj = new Date(d + "T12:00:00Z");
 
       const parsedRow: ReportRow = {
-        ...row, // Include raw CSV columns just in case
+        ...row, 
         d,
         from: d, 
         exact: true,
@@ -145,32 +145,28 @@ export async function loadReport(): Promise<ReportSnapshot> {
         sales: salesKey ? parseNum(row[salesKey]) : 0,
         shippedSales: shippedSalesKey ? parseNum(row[shippedSalesKey]) : 0,
         earnings: parseNum(row[earningsKey]) * INFLUENCER_SHARE,
-        // Fallbacks for any other charts
         clicks: 0,
         returned: 0,
         conversion: 0,
       };
 
-      // 🛡️ THE SAFETY NET: Prevents ANY undefined errors in metrics.ts
+      // 🛡️ THE SAFETY NET
       rows.push(new Proxy(parsedRow, {
         get(target, prop) {
-          // Cast to any to fix the TypeScript 'symbol' error
           if (prop in target) return (target as any)[prop];
           
           if (typeof prop === 'string') {
-            // Catch missing dates/IDs so .slice() doesn't crash
             if (prop.startsWith('d') || prop.toLowerCase().includes('date') || prop.toLowerCase().includes('id')) {
               return target.d || ''; 
             }
-            // Catch specific date range fields used by charts
             if (prop === 'to' || prop === 'from') {
               return target.d;
             }
           }
-          // Default to 0 for missing math fields
           return 0;
         }
       }));
+    });
 
     return {
       rows,
