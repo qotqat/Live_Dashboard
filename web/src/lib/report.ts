@@ -1,18 +1,15 @@
 import Papa from "papaparse";
 
+// This must match exactly what metrics.ts expects!
 export interface ReportRow {
-  d: string;
-  from: string;
-  exact: boolean;
-  w: number;
+  date: string;
   trackingId: string;
-  tracking: string;
-  store: string;
-  orders: number;
-  shipped: number;
-  sales: number;
-  shippedSales: number;
-  earnings: number;
+  itemsOrdered: number;
+  itemsShipped: number;
+  orderedRevenue: number;
+  itemsShippedRevenue: number;
+  totalEarnings: number;
+  clicks: number;
   [key: string]: any; 
 }
 
@@ -34,6 +31,7 @@ const COL_SALES = ['ordered_revenue', 'ordered revenue', 'ordered_revenuerevenue
 const COL_EARNINGS = ['total_earnings', 'total earnings', 'total_earningstotal_earnings'];
 const COL_SHIPPED = ['items_shippeditems_shipped', 'items shipped', 'items_shipped'];
 const COL_SHIPPED_SALES = ['items_shipped_revenueitems_shipped_revenue', 'items shipped revenue', 'items_shipped_revenue'];
+const COL_CLICKS = ['clickstotal_number_of_clicks_on_your_amazon_associates_links', 'clicks'];
 
 function sheetCsvUrl() {
   const id = process.env.SHEET_ID || DEFAULT_SHEET_ID;
@@ -81,13 +79,6 @@ function parseDateStr(dateStr: string): string {
   return ''; 
 }
 
-function getWeekNumber(d: Date) {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-}
-
 export async function loadReport(): Promise<ReportSnapshot> {
   const url = sheetCsvUrl();
   
@@ -111,6 +102,7 @@ export async function loadReport(): Promise<ReportSnapshot> {
     const earningsKey = findCol(headers, COL_EARNINGS);
     const shippedKey = findCol(headers, COL_SHIPPED);
     const shippedSalesKey = findCol(headers, COL_SHIPPED_SALES);
+    const clicksKey = findCol(headers, COL_CLICKS);
 
     if (!dateKey) throw new Error("Missing Date column");
     if (!earningsKey) throw new Error("Missing Earnings column");
@@ -120,8 +112,8 @@ export async function loadReport(): Promise<ReportSnapshot> {
 
     parsed.data.forEach((row: any) => {
       const trackingId = idKey && row[idKey] ? String(row[idKey]).trim() : "unknown";
-      const d = parseDateStr(row[dateKey]);
-      if (!d) return; 
+      const date = parseDateStr(row[dateKey]);
+      if (!date) return; 
 
       const parseNum = (val: any) => {
         if (!val) return 0;
@@ -129,43 +121,17 @@ export async function loadReport(): Promise<ReportSnapshot> {
         return Number(clean) || 0;
       };
 
-      const dateObj = new Date(d + "T12:00:00Z");
-
-      const parsedRow: ReportRow = {
-        ...row, 
-        d,
-        from: d, 
-        exact: true,
-        w: getWeekNumber(dateObj),
+      // Map perfectly to metrics.ts expectations
+      rows.push({
+        date,
         trackingId,
-        tracking: trackingId, 
-        store: trackingId,    
-        orders: ordersKey ? parseNum(row[ordersKey]) : 0,
-        shipped: shippedKey ? parseNum(row[shippedKey]) : 0,
-        sales: salesKey ? parseNum(row[salesKey]) : 0,
-        shippedSales: shippedSalesKey ? parseNum(row[shippedSalesKey]) : 0,
-        earnings: parseNum(row[earningsKey]) * INFLUENCER_SHARE,
-        clicks: 0,
-        returned: 0,
-        conversion: 0,
-      };
-
-      // 🛡️ THE SAFETY NET
-      rows.push(new Proxy(parsedRow, {
-        get(target, prop) {
-          if (prop in target) return (target as any)[prop];
-          
-          if (typeof prop === 'string') {
-            if (prop.startsWith('d') || prop.toLowerCase().includes('date') || prop.toLowerCase().includes('id')) {
-              return target.d || ''; 
-            }
-            if (prop === 'to' || prop === 'from') {
-              return target.d;
-            }
-          }
-          return 0;
-        }
-      }));
+        itemsOrdered: ordersKey ? parseNum(row[ordersKey]) : 0,
+        itemsShipped: shippedKey ? parseNum(row[shippedKey]) : 0,
+        orderedRevenue: salesKey ? parseNum(row[salesKey]) : 0,
+        itemsShippedRevenue: shippedSalesKey ? parseNum(row[shippedSalesKey]) : 0,
+        totalEarnings: parseNum(row[earningsKey]) * INFLUENCER_SHARE,
+        clicks: clicksKey ? parseNum(row[clicksKey]) : 0,
+      });
     });
 
     return {
