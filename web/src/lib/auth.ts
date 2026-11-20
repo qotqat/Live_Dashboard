@@ -49,15 +49,6 @@ export function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 254;
 }
 
-export function isValidTrackingId(value: string): boolean {
-  return /^[a-z0-9_-]{2,64}$/i.test(value);
-}
-
-export function isValidUsername(value: string): boolean {
-  if (value.length < 2 || value.length > 32) return false;
-  return /^[\p{L}\p{N}][\p{L}\p{N} ._-]*$/u.test(value);
-}
-
 export function isValidPassword(value: string): boolean {
   return value.length >= 8 && value.length <= 200;
 }
@@ -144,10 +135,17 @@ export function usernameExists(username: string): boolean {
   );
 }
 
-export function trackingIdExists(trackingId: string): boolean {
-  return Boolean(
-    db.prepare("SELECT 1 FROM users WHERE tracking_id = ?").get(trackingId),
-  );
+export function emailLocalPart(email: string): string {
+  return email.split("@")[0] || email;
+}
+
+export function uniqueUsername(base: string): string {
+  if (!usernameExists(base)) return base;
+  for (let i = 2; i <= 99; i++) {
+    const candidate = `${base}-${i}`;
+    if (!usernameExists(candidate)) return candidate;
+  }
+  return `${base}-${Date.now()}`;
 }
 
 export function createUser(input: {

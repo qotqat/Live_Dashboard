@@ -98,31 +98,16 @@ export type Dictionary = {
   auth: {
     loginTitle: string;
     loginSub: string;
-    signupTitle: string;
-    signupSub: string;
     email: string;
-    password: string;
-    username: string;
-    trackingId: string;
+    mobile: string;
     loginSubmit: string;
-    signupSubmit: string;
-    firstTime: string;
-    haveAccount: string;
-    invalidCredentials: string;
+    invalidPhone: string;
+    noAccount: string;
     tooManyAttempts: string;
+    genericError: string;
     emailTaken: string;
     usernameTaken: string;
-    trackingTaken: string;
-    notEligible: string;
-    trackingMismatch: string;
     trackingUnassigned: string;
-    invalidEmail: string;
-    shortPassword: string;
-    invalidUsername: string;
-    invalidTrackingId: string;
-    genericError: string;
-    passwordHint: string;
-    trackingHint: string;
   };
   account: {
     menuAria: string;
@@ -257,35 +242,17 @@ const en: Dictionary = {
   auth: {
     loginTitle: "Sign in",
     loginSub: "Open your personal earnings dashboard.",
-    signupTitle: "Activate your account",
-    signupSub:
-      "Use the email and tracking ID already registered with Trendire Group.",
     email: "Email",
-    password: "Password",
-    username: "Username",
-    trackingId: "Tracking ID",
+    mobile: "Mobile Number",
     loginSubmit: "Sign in",
-    signupSubmit: "Create account",
-    firstTime: "First time here? Activate your account",
-    haveAccount: "Already have an account? Sign in",
-    invalidCredentials: "Email or password is incorrect.",
+    invalidPhone: "Enter a valid mobile number.",
+    noAccount: "No account found with this email and phone number.",
     tooManyAttempts: "Too many attempts. Try again in 15 minutes.",
+    genericError: "Something went wrong. Try again.",
     emailTaken: "This email is already registered. Sign in instead.",
     usernameTaken: "That username is taken. Choose another one.",
-    trackingTaken: "That tracking ID is already linked to another account.",
-    notEligible:
-      "This email is not on the active account list. Contact the administrator.",
-    trackingMismatch: "The tracking ID does not match this email.",
     trackingUnassigned:
       "No tracking ID is assigned to this email yet. Contact the administrator.",
-    invalidEmail: "Enter a valid email address.",
-    shortPassword: "Password must be at least 8 characters.",
-    invalidUsername:
-      "Username must be 2–32 characters using letters, numbers, spaces, dots, dashes or underscores.",
-    invalidTrackingId: "Enter a valid tracking ID.",
-    genericError: "Something went wrong. Try again.",
-    passwordHint: "At least 8 characters.",
-    trackingHint: "The ID listed for your account in the Access tab.",
   },
   account: {
     menuAria: "Open account menu",
@@ -423,35 +390,17 @@ const ar: Dictionary = {
   auth: {
     loginTitle: "تسجيل الدخول",
     loginSub: "افتح لوحة أرباحك الشخصية.",
-    signupTitle: "تفعيل الحساب",
-    signupSub:
-      "استخدم البريد الإلكتروني ومعرّف التتبع المسجّلين لدى Trendire Group.",
     email: "البريد الإلكتروني",
-    password: "كلمة المرور",
-    username: "اسم المستخدم",
-    trackingId: "معرّف التتبع",
+    mobile: "رقم الهاتف",
     loginSubmit: "دخول",
-    signupSubmit: "إنشاء الحساب",
-    firstTime: "أول مرة؟ فعّل حسابك",
-    haveAccount: "لديك حساب؟ سجّل الدخول",
-    invalidCredentials: "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+    invalidPhone: "أدخل رقم هاتف محمول صالحًا.",
+    noAccount: "لم نجد حسابًا لهذا البريد الإلكتروني ورقم الهاتف.",
     tooManyAttempts: "محاولات كثيرة. حاول مرة أخرى بعد 15 دقيقة.",
-    emailTaken: "هذا البريد مسجّل بالفعل. سجّل الدخول.",
-    usernameTaken: "اسم المستخدم مستخدم بالفعل. اختر اسمًا آخر.",
-    trackingTaken: "معرّف التتبع مرتبط بحساب آخر.",
-    notEligible:
-      "هذا البريد غير موجود في قائمة الحسابات النشطة. تواصل مع الإدارة.",
-    trackingMismatch: "معرّف التتبع لا يطابق البريد الإلكتروني.",
+    genericError: "حدث خطأ. حاول مرة أخرى.",
+    emailTaken: "هذا البريد مسجّل بالفعل.",
+    usernameTaken: "اسم المستخدم مستخدم بالفعل.",
     trackingUnassigned:
       "لم يتم تعيين معرّف تتبع لهذا البريد بعد. تواصل مع الإدارة.",
-    invalidEmail: "أدخل بريدًا إلكترونيًا صحيحًا.",
-    shortPassword: "كلمة المرور 8 أحرف على الأقل.",
-    invalidUsername:
-      "اسم المستخدم من 2 إلى 32 حرفًا باستخدام الحروف والأرقام والمسافات والنقطة والشرطة.",
-    invalidTrackingId: "أدخل معرّف تتبع صحيحًا.",
-    genericError: "حدث خطأ. حاول مرة أخرى.",
-    passwordHint: "8 أحرف على الأقل.",
-    trackingHint: "المعرّف الموجود لحسابك في تبويب Access.",
   },
   account: {
     menuAria: "فتح قائمة الحساب",

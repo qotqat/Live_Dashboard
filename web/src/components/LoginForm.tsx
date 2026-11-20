@@ -1,20 +1,23 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 
-import { loginAction } from "@/app/actions/auth";
+import { loginWithEmailPhone } from "@/app/actions/auth";
 import type { Dictionary } from "@/lib/i18n";
 
 export function LoginForm({ dict }: { dict: Dictionary }) {
-  const [state, action, pending] = useActionState(loginAction, undefined);
+  const [state, action, pending] = useActionState(
+    loginWithEmailPhone,
+    undefined,
+  );
   const t = dict.auth;
+  const error = state?.error;
 
   return (
     <form action={action} className="auth-form">
-      {state?.error ? (
+      {error ? (
         <p className="auth-error" role="alert">
-          {state.error}
+          {error}
         </p>
       ) : null}
 
@@ -31,12 +34,15 @@ export function LoginForm({ dict }: { dict: Dictionary }) {
       </label>
 
       <label className="field">
-        <span>{t.password}</span>
+        <span>{t.mobile}</span>
         <input
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          minLength={8}
+          name="mobile"
+          type="tel"
+          autoComplete="tel"
+          inputMode="tel"
+          dir="ltr"
+          spellCheck={false}
+          autoCapitalize="none"
           required
         />
       </label>
@@ -44,10 +50,6 @@ export function LoginForm({ dict }: { dict: Dictionary }) {
       <button className="auth-submit" type="submit" disabled={pending}>
         {t.loginSubmit}
       </button>
-
-      <p className="auth-switch">
-        <Link href="/signup">{t.firstTime}</Link>
-      </p>
     </form>
   );
 }

@@ -1,5 +1,7 @@
 import Papa from "papaparse";
 
+import { phonesMatch } from "./phone";
+
 export interface ReportRow {
   date: string;
   trackingId: string;
@@ -154,6 +156,87 @@ function parseDateStr(dateStr: string): string {
   }
 
   return ''; 
+}
+
+export type LoginRow = {
+  email: string;
+  mobile: string;
+  username: string;
+  submittedAt: string;
+};
+
+const LOGIN_SHEET_ID =
+  process.env.LOGIN_SHEET_ID || "19mcpmB9GmarXFNS9M0VtWpidrFh24DTA6EczCgH_lX4";
+const LOGIN_SHEET_TAB = process.env.LOGIN_SHEET_TAB || "Submissions";
+
+async function fetchLoginRows(): Promise<LoginRow[]> {
+  const url = `https://docs.google.com/spreadsheets/d/${LOGIN_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(LOGIN_SHEET_TAB)}`;
+  const res = await fetch(url, { redirect: "follow", cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Login sheet returned HTTP ${res.status}`);
+  }
+
+  const text = await res.text();
+  if (text.trim().startsWith("<!DOCTYPE")) {
+    throw new Error("Login sheet is not public.");
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const parsed = (Papa as any).parse(text, {
+    header: true,
+    skipEmptyLines: true,
+    bom: true,
+  }) as { data: any[] };
+
+  return (parsed.data as any[]).map((row: any) => ({
+    email: String(pickValue(row, ["Email", "البريد الإلكتروني"]) || "")
+      .trim()
+      .toLowerCase(),
+    mobile: String(pickValue(row, ["Mobile", "رقم الهاتف", "Phone"]) || "")
+      .trim(),
+    username: String(
+      pickValue(row, ["Full Name (EN)", "Full Name", "اسم"]) || "",
+    )
+      .trim(),
+    submittedAt: String(pickValue(row, ["Submitted At", "Submitted"]) || "")
+      .trim(),
+  }));
+}
+
+function parseSubmittedAt(value: string): number {
+  const s = value.trim();
+  if (!s) return 0;
+  const iso = Date.parse(s);
+  if (!Number.isNaN(iso)) return iso;
+
+  const m = s.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ ,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/,
+  );
+  if (m) {
+    return Date.UTC(
+      Number(m[3]),
+      Number(m[2]) - 1,
+      Number(m[1]),
+      Number(m[4] || 0),
+      Number(m[5] || 0),
+      Number(m[6] || 0),
+    );
+  }
+  return 0;
+}
+
+export async function findLoginRow(
+  email: string,
+  mobile: string,
+): Promise<LoginRow | null> {
+  const rows = await fetchLoginRows();
+  const matches = rows
+    .filter((row) => row.email === email && phonesMatch(row.mobile, mobile))
+    .sort(
+      (a, b) =>
+        parseSubmittedAt(b.submittedAt) - parseSubmittedAt(a.submittedAt),
+    );
+  return matches[0] || null;
 }
 
 export async function loadReport(): Promise<ReportSnapshot> {

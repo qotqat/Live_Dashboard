@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 const SESSION_COOKIE = "trendire_session";
-const PUBLIC_ROUTES = new Set(["/login", "/signup"]);
+const PUBLIC_ROUTES = new Set(["/login"]);
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -8,25 +8,20 @@ import {
   createUser,
   destroySession,
   emailExists,
+  emailLocalPart,
   findUserByEmail,
   getClientIp,
-  hashPassword,
   isValidEmail,
-  isValidPassword,
-  isValidTrackingId,
-  isValidUsername,
   loginRateAllowed,
   normalizeEmail,
-  normalizeTrackingId,
   normalizeUsername,
   recordLoginFailure,
-  trackingIdExists,
+  uniqueUsername,
   usernameExists,
-  verifyPassword,
 } from "@/lib/auth";
 import { getDictionary } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale-server";
-import { fetchAccessRows } from "@/lib/report";
+import { fetchAccessRows, findLoginRow } from "@/lib/report";
 
 export type AuthState = { error?: string } | undefined;
 
@@ -34,18 +29,17 @@ function field(formData: FormData, name: string): string {
   return String(formData.get(name) || "");
 }
 
-export async function loginAction(
+export async function loginWithEmailPhone(
   _previous: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
   const locale = await getLocale();
   const t = getDictionary(locale).auth;
-
   const email = normalizeEmail(field(formData, "email"));
-  const password = field(formData, "password");
+  const mobile = field(formData, "mobile");
 
-  if (!isValidEmail(email) || !password) {
-    return { error: t.invalidCredentials };
+  if (!isValidEmail(email) || !mobile.trim()) {
+    return { error: t.invalidPhone };
   }
 
   const ip = await getClientIp();
@@ -54,82 +48,46 @@ export async function loginAction(
     return { error: t.tooManyAttempts };
   }
 
+  const row = await findLoginRow(email, mobile);
+  if (!row) {
+    recordLoginFailure(rateKey);
+    return { error: t.noAccount };
+  }
+
   const user = findUserByEmail(email);
-  if (!user) {
-    recordLoginFailure(rateKey);
-    return { error: t.invalidCredentials };
-  }
-
-  const valid = await verifyPassword(password, user.passwordHash);
-  if (!valid) {
-    recordLoginFailure(rateKey);
-    return { error: t.invalidCredentials };
-  }
-
-  clearLoginFailures(rateKey);
-  await createSession(user.id);
-  redirect("/");
-}
-
-export async function signupAction(
-  _previous: AuthState,
-  formData: FormData,
-): Promise<AuthState> {
-  const locale = await getLocale();
-  const t = getDictionary(locale).auth;
-
-  const email = normalizeEmail(field(formData, "email"));
-  const password = field(formData, "password");
-  const username = normalizeUsername(field(formData, "username"));
-  const trackingId = normalizeTrackingId(field(formData, "trackingId"));
-
-  if (!isValidEmail(email)) return { error: t.invalidEmail };
-  if (!isValidPassword(password)) return { error: t.shortPassword };
-  if (!isValidUsername(username)) return { error: t.invalidUsername };
-  if (!isValidTrackingId(trackingId)) {
-    return { error: t.invalidTrackingId };
+  if (user) {
+    clearLoginFailures(rateKey);
+    await createSession(user.id);
+    redirect("/");
   }
 
   const accessRows = await fetchAccessRows().catch(() => []);
-  const access = accessRows.find((row) => row.email === email);
-
-  if (!access || !access.active) {
-    return { error: t.notEligible };
-  }
-
-  if (!access.trackingId) {
+  const access = accessRows.find((r) => r.email === email);
+  if (!access || !access.trackingId) {
+    recordLoginFailure(rateKey);
     return { error: t.trackingUnassigned };
   }
 
-  if (normalizeTrackingId(access.trackingId) !== trackingId) {
-    return { error: t.trackingMismatch };
-  }
-
-  if (emailExists(email)) return { error: t.emailTaken };
-  if (usernameExists(username)) return { error: t.usernameTaken };
-  if (trackingIdExists(trackingId)) return { error: t.trackingTaken };
-
-  const passwordHash = await hashPassword(password);
-
-  let created: ReturnType<typeof createUser>;
-
+  const username = uniqueUsername(
+    normalizeUsername(row.username || emailLocalPart(email)),
+  );
   try {
-    created = createUser({
+    const created = createUser({
       email,
-      passwordHash,
+      passwordHash: "",
       username,
-      trackingId,
-      name: access.name || null,
+      trackingId: access.trackingId,
+      name: null,
     });
+    clearLoginFailures(rateKey);
+    await createSession(created.id);
+    redirect("/");
   } catch {
+    recordLoginFailure(rateKey);
     if (emailExists(email)) return { error: t.emailTaken };
     if (usernameExists(username)) return { error: t.usernameTaken };
-    if (trackingIdExists(trackingId)) return { error: t.trackingTaken };
     return { error: t.genericError };
   }
-
-  await createSession(created.id);
-  redirect("/");
 }
 
 export async function logoutAction(): Promise<void> {
