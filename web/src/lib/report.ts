@@ -12,12 +12,29 @@ export interface ReportRow {
   [key: string]: any; 
 }
 
+export type PaymentRow = {
+  trackingId: string;
+  month: string;
+  status: string;
+  amount: number | null;
+  expected: string;
+  paid: string;
+  note: string;
+};
+
+export type AccessRow = {
+  name: string;
+  email: string;
+  trackingId: string;
+  active: boolean;
+};
+
 export interface ReportSnapshot {
   rows: ReportRow[];
   fetchedAt: string;
   currency: string;
   rates: any[];
-  payments: any[];
+  payments: PaymentRow[];
   ratesTitle?: string;
 }
 
@@ -38,31 +55,65 @@ function sheetCsvUrl() {
   return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
 }
 
-async function fetchTab(tabName: string): Promise<any[]> {
+async function fetchTab(
+  tabName: string,
+  options: { fresh?: boolean } = {},
+): Promise<any[]> {
   const id = process.env.SHEET_ID || DEFAULT_SHEET_ID;
   const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
-  const res = await fetch(url, { redirect: 'follow', cache: 'no-store' });
-  
+  const res = await fetch(
+    url,
+    options.fresh
+      ? { redirect: "follow", cache: "no-store" }
+      : { redirect: "follow", next: { revalidate: 300 } },
+  );
+
   if (!res.ok) {
     console.error(`Failed to fetch tab ${tabName}. HTTP: ${res.status}`);
     return [];
   }
-  
+
   const text = await res.text();
-  if (text.trim().startsWith('<!DOCTYPE')) {
+  if (text.trim().startsWith("<!DOCTYPE")) {
     console.error(`Tab ${tabName} returned HTML (login page).`);
     return [];
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const parsed = (Papa as any).parse(text, { header: true, skipEmptyLines: true, bom: true }) as { data: any[] };
-  
-  // LOG WHAT WE FOUND
-  if (tabName === 'Payments') {
-    console.log("=== RAW PAYMENTS TAB DATA ===", parsed.data);
-  }
+  const parsed = (Papa as any).parse(text, {
+    header: true,
+    skipEmptyLines: true,
+    bom: true,
+  }) as { data: any[] };
 
   return parsed.data || [];
+}
+
+function pickValue(row: any, names: string[]): any {
+  const keys = Object.keys(row);
+  const key = keys.find((candidate) =>
+    names.some((name) => candidate.toLowerCase().includes(name.toLowerCase())),
+  );
+  return key ? row[key] : "";
+}
+
+export async function fetchAccessRows(): Promise<AccessRow[]> {
+  const rows = await fetchTab("Access", { fresh: true });
+
+  return rows
+    .map((row) => ({
+      name: String(pickValue(row, ["Name", "الاسم"]) || "").trim(),
+      email: String(pickValue(row, ["Email", "البريد"]) || "")
+        .trim()
+        .toLowerCase(),
+      trackingId: String(
+        pickValue(row, ["Tracking Id", "Tracking ID", "معرف التتبع"]) || "",
+      ).trim(),
+      active: /^(yes|true|1|active|نعم|نشط|فعال)$/i.test(
+        String(pickValue(row, ["Active", "نشط"]) || "").trim(),
+      ),
+    }))
+    .filter((row) => row.email);
 }
 
 function findCol(headers: string[], names: string[]): string | null {
@@ -110,9 +161,12 @@ export async function loadReport(): Promise<ReportSnapshot> {
   
   try {
     const [dataRes, paymentsData, commissionData] = await Promise.all([
-      fetch(url, { redirect: 'follow', cache: 'no-store' }),
-      fetchTab('Payments').catch(() => []),
-      fetchTab('Commission').catch(() => [])
+      fetch(url, {
+        redirect: "follow",
+        next: { revalidate: 300 },
+      }),
+      fetchTab("Payments").catch(() => []),
+      fetchTab("Commission").catch(() => []),
     ]);
 
     if (!dataRes.ok) throw new Error(`Google Sheets returned HTTP ${dataRes.status}`);
@@ -164,29 +218,33 @@ export async function loadReport(): Promise<ReportSnapshot> {
       });
     });
 
-    const payments = paymentsData.map((row: any) => {
-      const keys = Object.keys(row);
-      const getVal = (possibleNames: string[]) => {
-        const k = keys.find(key => possibleNames.some(pn => key.toLowerCase().includes(pn.toLowerCase())));
-        return k ? row[k] : '';
-      };
-      
-      const monthStr = getVal(['Month (YYYY-MM)', 'month']);
-      const status = getVal(['Status', 'حالة']);
-      const valAmtStr = getVal(['Validated Amount', 'المبلغ']);
-      const expDate = getVal(['Expected Payment Date', 'موعد الدفع']);
-      const paidDate = getVal(['Paid Date', 'تاريخ الدفع']);
-      const note = getVal(['Note', 'ملاحظة']);
+    const payments: PaymentRow[] = paymentsData
+      .map((row: any) => {
+        const amountRaw = pickValue(row, ["Validated Amount", "المبلغ"]);
 
-      return [
-        monthStr,
-        status,
-        valAmtStr ? Number(String(valAmtStr).replace(/[^0-9.-]/g, '')) : null,
-        expDate,
-        paidDate,
-        note
-      ];
-    }).filter(p => p[0]); 
+        return {
+          trackingId: String(
+            pickValue(row, ["Tracking Id", "Tracking ID"]) || "",
+          )
+            .trim()
+            .toLowerCase(),
+          month: String(
+            pickValue(row, ["Month (YYYY-MM)", "Month", "الشهر"]) || "",
+          ).trim(),
+          status: String(pickValue(row, ["Status", "حالة"]) || "").trim(),
+          amount: amountRaw
+            ? Number(String(amountRaw).replace(/[^0-9.-]/g, ""))
+            : null,
+          expected: String(
+            pickValue(row, ["Expected Payment Date", "موعد الدفع"]) || "",
+          ).trim(),
+          paid: String(
+            pickValue(row, ["Paid Date", "تاريخ الدفع"]) || "",
+          ).trim(),
+          note: String(pickValue(row, ["Note", "ملاحظة"]) || "").trim(),
+        };
+      })
+      .filter((payment) => payment.month); 
 
     const rates = commissionData.map((row: any) => {
       const keys = Object.keys(row);

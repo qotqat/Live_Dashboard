@@ -41,6 +41,7 @@ export type Dictionary = {
   hero: {
     title: string;
     sub: string;
+    userSub: string;
     asOf: string;
     noData: string;
   };
@@ -83,7 +84,7 @@ export type Dictionary = {
     title: string;
     sub: string;
     empty: string;
-    id: string;
+    username: string;
     orders: string;
     clicks: string;
     sales: string;
@@ -94,11 +95,81 @@ export type Dictionary = {
     source: string;
     basis: string;
   };
+  auth: {
+    loginTitle: string;
+    loginSub: string;
+    signupTitle: string;
+    signupSub: string;
+    email: string;
+    password: string;
+    username: string;
+    trackingId: string;
+    loginSubmit: string;
+    signupSubmit: string;
+    firstTime: string;
+    haveAccount: string;
+    invalidCredentials: string;
+    tooManyAttempts: string;
+    emailTaken: string;
+    usernameTaken: string;
+    trackingTaken: string;
+    notEligible: string;
+    trackingMismatch: string;
+    trackingUnassigned: string;
+    invalidEmail: string;
+    shortPassword: string;
+    invalidUsername: string;
+    invalidTrackingId: string;
+    genericError: string;
+    passwordHint: string;
+    trackingHint: string;
+  };
+  account: {
+    menuAria: string;
+    email: string;
+    username: string;
+    trackingId: string;
+    logout: string;
+  };
+  tabs: {
+    label: string;
+    perf: string;
+    payments: string;
+    commissions: string;
+  };
+  payments: {
+    next: string;
+    last: string;
+    noNext: string;
+    noLast: string;
+    noLastHint: string;
+    history: string;
+    empty: string;
+    month: string;
+    status: string;
+    amount: string;
+    expected: string;
+    paid: string;
+    note: string;
+    estimated: string;
+    statusPaid: string;
+    statusValidated: string;
+    statusPending: string;
+  };
+  rates: {
+    title: string;
+    sub: string;
+    category: string;
+    rate: string;
+    empty: string;
+  };
   errors: {
     loadTitle: string;
     sheetUnavailable: string;
     emptyTitle: string;
     emptyBody: string;
+    noUserDataTitle: string;
+    noUserDataBody: string;
   };
 };
 
@@ -121,6 +192,7 @@ const en: Dictionary = {
   hero: {
     title: "Earnings and sales at a glance",
     sub: "Combined view across every tracking ID in the data tab.",
+    userSub: "Your performance for {username}.",
     asOf: "Data updated to {date}",
     noData: "No data yet",
   },
@@ -166,10 +238,10 @@ const en: Dictionary = {
     toDate: "(to {date})",
   },
   tracking: {
-    title: "By tracking ID",
-    sub: "Distribution for the selected period.",
-    empty: "No tracking IDs in this period.",
-    id: "Tracking ID",
+    title: "By username",
+    sub: "Your account for the selected period.",
+    empty: "No account data in this period.",
+    username: "Username",
     orders: "Orders",
     clicks: "Clicks",
     sales: "Sales",
@@ -179,7 +251,80 @@ const en: Dictionary = {
   footer: {
     source:
       "Source: the data tab in Google Sheets · checked every 5 minutes · amounts in Egyptian pounds (EGP)",
-    basis: "Earnings shown are Amazon's total commission as reported.",
+    basis:
+      "Earnings shown are the influencer share (50%) of Amazon's reported commission.",
+  },
+  auth: {
+    loginTitle: "Sign in",
+    loginSub: "Open your personal earnings dashboard.",
+    signupTitle: "Activate your account",
+    signupSub:
+      "Use the email and tracking ID already registered with Trendire Group.",
+    email: "Email",
+    password: "Password",
+    username: "Username",
+    trackingId: "Tracking ID",
+    loginSubmit: "Sign in",
+    signupSubmit: "Create account",
+    firstTime: "First time here? Activate your account",
+    haveAccount: "Already have an account? Sign in",
+    invalidCredentials: "Email or password is incorrect.",
+    tooManyAttempts: "Too many attempts. Try again in 15 minutes.",
+    emailTaken: "This email is already registered. Sign in instead.",
+    usernameTaken: "That username is taken. Choose another one.",
+    trackingTaken: "That tracking ID is already linked to another account.",
+    notEligible:
+      "This email is not on the active account list. Contact the administrator.",
+    trackingMismatch: "The tracking ID does not match this email.",
+    trackingUnassigned:
+      "No tracking ID is assigned to this email yet. Contact the administrator.",
+    invalidEmail: "Enter a valid email address.",
+    shortPassword: "Password must be at least 8 characters.",
+    invalidUsername:
+      "Username must be 2–32 characters using letters, numbers, spaces, dots, dashes or underscores.",
+    invalidTrackingId: "Enter a valid tracking ID.",
+    genericError: "Something went wrong. Try again.",
+    passwordHint: "At least 8 characters.",
+    trackingHint: "The ID listed for your account in the Access tab.",
+  },
+  account: {
+    menuAria: "Open account menu",
+    email: "Email",
+    username: "Username",
+    trackingId: "Tracking ID",
+    logout: "Sign out",
+  },
+  tabs: {
+    label: "Sections",
+    perf: "Performance",
+    payments: "Payments",
+    commissions: "Commission",
+  },
+  payments: {
+    next: "Next payment",
+    last: "Last payment",
+    noNext: "No pending payments right now",
+    noLast: "No payments yet",
+    noLastHint: "The first confirmed payment will appear here.",
+    history: "Payment history",
+    empty: "No payment records yet.",
+    month: "Month",
+    status: "Status",
+    amount: "Amount",
+    expected: "Expected date",
+    paid: "Paid date",
+    note: "Note",
+    estimated: "Estimated",
+    statusPaid: "Paid",
+    statusValidated: "Validated",
+    statusPending: "Pending",
+  },
+  rates: {
+    title: "Commission rates",
+    sub: "Your share of the commission for each product category.",
+    category: "Category",
+    rate: "Your rate",
+    empty: "No commission rates available.",
   },
   errors: {
     loadTitle: "Could not load data",
@@ -188,6 +333,9 @@ const en: Dictionary = {
     emptyTitle: "No data yet",
     emptyBody:
       "The data tab was read, but no row had a tracking ID and a valid date.",
+    noUserDataTitle: "No data for this account",
+    noUserDataBody:
+      "No rows were found for tracking ID {trackingId} in the selected period.",
   },
 };
 
@@ -210,6 +358,7 @@ const ar: Dictionary = {
   hero: {
     title: "متابعة الأرباح والمبيعات",
     sub: "عرض مجمّع لكل معرّفات التتبع في تبويب البيانات.",
+    userSub: "أداؤك لحساب {username}.",
     asOf: "البيانات محدّثة حتى {date}",
     noData: "لا توجد بيانات بعد",
   },
@@ -255,10 +404,10 @@ const ar: Dictionary = {
     toDate: "(حتى {date})",
   },
   tracking: {
-    title: "حسب معرّف التتبع",
-    sub: "توزيع الفترة المحددة.",
-    empty: "لا توجد معرّفات تتبع في هذه الفترة.",
-    id: "معرّف التتبع",
+    title: "حسب اسم المستخدم",
+    sub: "حسابك للفترة المحددة.",
+    empty: "لا توجد بيانات لهذا الحساب في هذه الفترة.",
+    username: "اسم المستخدم",
     orders: "الطلبات",
     clicks: "النقرات",
     sales: "المبيعات",
@@ -267,8 +416,81 @@ const ar: Dictionary = {
   },
   footer: {
     source:
-      "",
-    basis: "",
+      "المصدر: تبويب data في Google Sheets · يُفحص كل 5 دقائق · المبالغ بالجنيه المصري (ج.م)",
+    basis:
+      "العمولة المعروضة هي حصة المؤثر (50%) من عمولة أمازون الواردة في التقرير.",
+  },
+  auth: {
+    loginTitle: "تسجيل الدخول",
+    loginSub: "افتح لوحة أرباحك الشخصية.",
+    signupTitle: "تفعيل الحساب",
+    signupSub:
+      "استخدم البريد الإلكتروني ومعرّف التتبع المسجّلين لدى Trendire Group.",
+    email: "البريد الإلكتروني",
+    password: "كلمة المرور",
+    username: "اسم المستخدم",
+    trackingId: "معرّف التتبع",
+    loginSubmit: "دخول",
+    signupSubmit: "إنشاء الحساب",
+    firstTime: "أول مرة؟ فعّل حسابك",
+    haveAccount: "لديك حساب؟ سجّل الدخول",
+    invalidCredentials: "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+    tooManyAttempts: "محاولات كثيرة. حاول مرة أخرى بعد 15 دقيقة.",
+    emailTaken: "هذا البريد مسجّل بالفعل. سجّل الدخول.",
+    usernameTaken: "اسم المستخدم مستخدم بالفعل. اختر اسمًا آخر.",
+    trackingTaken: "معرّف التتبع مرتبط بحساب آخر.",
+    notEligible:
+      "هذا البريد غير موجود في قائمة الحسابات النشطة. تواصل مع الإدارة.",
+    trackingMismatch: "معرّف التتبع لا يطابق البريد الإلكتروني.",
+    trackingUnassigned:
+      "لم يتم تعيين معرّف تتبع لهذا البريد بعد. تواصل مع الإدارة.",
+    invalidEmail: "أدخل بريدًا إلكترونيًا صحيحًا.",
+    shortPassword: "كلمة المرور 8 أحرف على الأقل.",
+    invalidUsername:
+      "اسم المستخدم من 2 إلى 32 حرفًا باستخدام الحروف والأرقام والمسافات والنقطة والشرطة.",
+    invalidTrackingId: "أدخل معرّف تتبع صحيحًا.",
+    genericError: "حدث خطأ. حاول مرة أخرى.",
+    passwordHint: "8 أحرف على الأقل.",
+    trackingHint: "المعرّف الموجود لحسابك في تبويب Access.",
+  },
+  account: {
+    menuAria: "فتح قائمة الحساب",
+    email: "البريد الإلكتروني",
+    username: "اسم المستخدم",
+    trackingId: "معرّف التتبع",
+    logout: "تسجيل الخروج",
+  },
+  tabs: {
+    label: "الأقسام",
+    perf: "الأداء",
+    payments: "المدفوعات",
+    commissions: "العمولة",
+  },
+  payments: {
+    next: "الدفعة القادمة",
+    last: "آخر دفعة",
+    noNext: "لا توجد مستحقات قادمة حاليًا",
+    noLast: "لم تتم أي مدفوعات بعد",
+    noLastHint: "ستظهر هنا أول دفعة بعد تأكيد المبلغ وصرفه.",
+    history: "سجل المدفوعات",
+    empty: "لا توجد بيانات كافية لعرض سجل المدفوعات حاليًا.",
+    month: "الشهر",
+    status: "الحالة",
+    amount: "المبلغ المؤكد",
+    expected: "موعد الدفع",
+    paid: "تاريخ الدفع",
+    note: "ملاحظة",
+    estimated: "تقديري",
+    statusPaid: "مدفوعة",
+    statusValidated: "مؤكدة",
+    statusPending: "قيد المراجعة",
+  },
+  rates: {
+    title: "نسب العمولة",
+    sub: "نسبة عمولتك من سعر كل منتج يُباع من خلال رابطك، حسب فئة المنتج.",
+    category: "الفئة",
+    rate: "نسبة عمولتك",
+    empty: "لا توجد نسب عمولة متاحة.",
   },
   errors: {
     loadTitle: "تعذر تحميل البيانات",
@@ -277,6 +499,9 @@ const ar: Dictionary = {
     emptyTitle: "لا توجد بيانات بعد",
     emptyBody:
       "تم قراءة تبويب data لكن لم نجد صفًا يحتوي على معرّف تتبع وتاريخ صحيح.",
+    noUserDataTitle: "لا توجد بيانات لهذا الحساب",
+    noUserDataBody:
+      "لم نجد صفوفًا لمعرّف التتبع {trackingId} في الفترة المحددة.",
   },
 };
 

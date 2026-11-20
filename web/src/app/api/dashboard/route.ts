@@ -1,12 +1,34 @@
-import { NextResponse } from 'next/server';
-import { loadReport } from '@/lib/report'; // or '../../../lib/report' if alias fails
+import { NextResponse } from "next/server";
+
+import { getCurrentUser } from "@/lib/auth";
+import { loadReport } from "@/lib/report";
 
 export async function GET() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return NextResponse.json(
+      { ok: false, error: "Unauthorized" },
+      { status: 401 },
+    );
+  }
+
   try {
-    const data = await loadReport();
-    return NextResponse.json(data);
-  } catch (error: any) {
-    console.error("API Error:", error.message);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    const snapshot = await loadReport();
+    const trackingId = user.trackingId.trim().toLowerCase();
+
+    const rows = snapshot.rows.filter(
+      (row) => row.trackingId.trim().toLowerCase() === trackingId,
+    );
+    const payments = snapshot.payments.filter(
+      (payment) => payment.trackingId.trim().toLowerCase() === trackingId,
+    );
+
+    return NextResponse.json({ ...snapshot, rows, payments });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown loading error.";
+    console.error("API Error:", message);
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }
